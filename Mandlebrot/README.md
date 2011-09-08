@@ -8,7 +8,7 @@ Left-click and drag to pan.
 
 Right-click and drag to zoom in or zoom out.
 
-+ or - to increase/decrease the quality.
+Use + or - to increase/decrease the quality.
 
 H key to return to default home view.
 
