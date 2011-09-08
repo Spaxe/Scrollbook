@@ -22,42 +22,57 @@
 #include <cstdio>
 #include <cmath>
 #include <cstring>
+#include <sstream>
+#include <string>
 
 #ifdef _WIN32
   #include "../include/pthread.h" // Because windows doesn't have pthread.  What.
+  #include "../GL/glew.h"
+  #include "../GL/glut.h"
 #else
   #include <pthread.h>
+  #include <GL/glew.h>
+  #include <GL/glut.h>
 #endif
 
-#include "../GL/glew.h"
-#include "../GL/glut.h"
 #include "../Prime/Timer.h"
-
+using namespace std;
 
 /* Width and height of the window */
-int width;   
-int height;
+int width = 1024;   
+int height = 1024;
+
 /* Interaction states */
-float scale;
-int offsetx;
-int offsety;
+float scale = 2.f;
+int offsetx = -width*2/3;
+int offsety = -height/3;
+
 /* Mouse location */
-int mx;
-int my;
+int mx = 0;
+int my = 0;
+
 /* Controls */
-bool drag;
-bool zoom;
-int renderer;
+bool drag = false;
+bool zoom = false;
+int renderer = 1;
+
 /* Internal buffer for the fractal */
-unsigned char * data;
-int limit;
+unsigned char * data = NULL;
+int limit = 32;
+
 /* OpenGL housekeeping */
-GLuint textureID;
-GLuint vert, frag, prog;
-int cudaRendering;
+GLuint textureID = 0;
+GLuint vert = 0, frag = 0, prog = 0;
+bool cudaRendering = false;
+
+/* Debug */
 Time timer;
-int timer_count;
-double elapsed_timer;
+Time fractalTimer;
+double elapsed_timer = 0.0;
+double elapsed_fractalTimer = 0.0;
+string modeText = "1: CPU (single thread)";
+string computeText = "Time/fractal: ";
+string fpsText = "Time/frame: ";
 
 
 /*
@@ -118,22 +133,34 @@ void cuda()
 
 
 /*
+ * Draws a string using GLUT's built-in bitmaps
+ */
+void drawText(int x, int y, const string& text)
+{
+  glRasterPos2i(x, y);
+  for (int i = 0; i < (int)text.size(); i++) 
+    glutBitmapCharacter(GLUT_BITMAP_8_BY_13, text[i]);
+}
+
+/*
  * Rendering the Mandlebrot fractal on a fullscreen quad.
  */
 void render()
 {
   // profiling
-  if (timer_count == 0)
-    timer.start();
+  timer.start();
 
   if (data != NULL) {
     /* Computes the Mandlebrot fractal for this frame */
+    fractalTimer.start();
     if (renderer == 1)
       serial();
     else if (renderer == 2)
       threaded();
     else
       cuda();
+    elapsed_fractalTimer = fractalTimer.getMilliseconds();
+
     /* Updates fractal to the GPU memory and display */
     glTexSubImage2D(GL_TEXTURE_2D, 
                     0, 0, 0, width, height, GL_BGR_EXT, 
@@ -143,6 +170,8 @@ void render()
   glMatrixMode(GL_MODELVIEW);
   glLoadIdentity();
   glClear(GL_COLOR_BUFFER_BIT);
+
+  glEnable(GL_TEXTURE_2D);
   glBegin(GL_QUADS);
     glTexCoord2f(0, 0);
     glVertex3i(0, 0, 0);
@@ -156,17 +185,23 @@ void render()
     glTexCoord2f(0, 1);
     glVertex3i(0, height, 0);
   glEnd();
-  glutPostRedisplay();
 
-  if (timer_count++ == 30) {
-    printf("Time: %.2f ms\n", elapsed_timer / 30); 
-    timer_count = 0;
-    elapsed_timer = 0.0;
-  } else {
-    elapsed_timer += timer.getMilliseconds();
-    timer.start();
-    glutSwapBuffers();
-  }
+  ///////////////////////////////////////////////////////////
+  // Debug stuff
+  elapsed_timer = timer.getMilliseconds();
+  ostringstream fpsBuffer, msBuffer, fractalBuffer;
+  msBuffer << elapsed_timer;
+  fpsBuffer << 1 / elapsed_timer * 1000;
+  fractalBuffer << elapsed_fractalTimer;
+  fpsText = "Time/frame: " + msBuffer.str() + " ms  (" + fpsBuffer.str() + " fps)";
+  computeText = "Time/fractal: " + fractalBuffer.str() + " ms";
+  glDisable(GL_TEXTURE_2D);
+  drawText(0, height-13, modeText);
+  drawText(0, height-26, computeText);
+  drawText(0, height-39, fpsText);
+  glutSwapBuffers();
+  ///////////////////////////////////////////////////////////
+  glutPostRedisplay();
 }
 
 
@@ -202,10 +237,10 @@ void init()
 
   /* OpenGL Settings */
   glMatrixMode(GL_PROJECTION);
-  glEnable(GL_TEXTURE_2D);
   glOrtho(0, width, 0, height, -1.0, 1.0);
   glViewport(0, 0, width, height);
   glClearColor(0, 0, 0, 0);
+  glColor3f(1, 1, 1);
 }
 
 
@@ -315,20 +350,7 @@ void handleMouseMove(int x, int y)
 
     
 int main(int argc, char* argv[])
-{
-  width = 1024;
-  height = 1024;
-  scale = 2.f;
-  offsetx = -width*2/3;
-  offsety = -height/3;
-  limit = 32;
-  cudaRendering = false;
-  drag = false;
-  zoom = false;
-  timer_count = 0;
-  renderer = 1;
-  elapsed_timer = 0.0;
-    
+{    
   /* Fire off GLUT */
   glutInit(&argc, argv);
   glutInitWindowSize(width, height); 
