@@ -17,17 +17,18 @@
        return 0
      else:
        return count      (intensity of the pixel)
-
-  Dependencies:
-    OpenGL 2.0+
-    FreeGLUT 2.6+
-    GLEW
-    CUDA (Optional)
  */
 #include <cstdlib>
 #include <cstdio>
 #include <cmath>
 #include <cstring>
+
+#ifdef _WIN32
+  #include "../include/pthread.h" // Because windows doesn't have pthread.  What.
+#else
+  #include <pthread.h>
+#endif
+
 #include "../GL/glew.h"
 #include "../GL/glut.h"
 #include "../Prime/Timer.h"

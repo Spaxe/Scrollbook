@@ -19,7 +19,7 @@
 *.[Cc]ache
 *.ilk
 *.log
-*.lib
+*.pdb
 *.sbr
 *.sdf
 *.opensdf
@@ -43,3 +43,6 @@ _ReSharper*/
 
 # Office Temp Files
 ~$*
+
+# Executable files
+*.exe
