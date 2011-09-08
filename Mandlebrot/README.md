@@ -8,7 +8,7 @@ Left-click and drag to pan.
 
 Right-click and drag to zoom in or zoom out.
 
-+ or - to increase/decrease the quality.
+Use + or - to increase/decrease the quality.
 
 H key to return to default home view.
 
@@ -29,8 +29,8 @@ Use the VS2010 project files or link against the above libraries.
 -lGL -lGLU -lglew -lglut -lpthread
 
 ### Tested Environments
-Windows 7 64-bit
-Ubuntu 11 64-bit
+- Windows 7 64-bit
+- Ubuntu 11 64-bit
 
 
 Notes
