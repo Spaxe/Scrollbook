@@ -31,7 +31,7 @@
   #include "../GL/glut.h"
 #else
   #include <pthread.h>
-  #include <GL/glew.h>
+  #include "../GL/glew.h"
   #include <GL/glut.h>
 #endif
 
@@ -65,6 +65,17 @@ GLuint textureID = 0;
 GLuint vert = 0, frag = 0, prog = 0;
 bool cudaRendering = false;
 
+/* Threading */
+pthread_t * workers;
+struct BBox {
+  int x1;
+  int y1;
+  int x2;
+  int y2;
+};
+BBox windowBox;
+
+
 /* Debug */
 Time timer;
 Time fractalTimer;
@@ -97,12 +108,23 @@ double mandlebrot(double cr, double ci)
 
 
 /*
- * 1. Non-parallel implementation of the mandlebrot set
+ * CPU implementation of the mandlebrot set.
+ * bbox is the bounding box of the retangle to be calculated by this
+ * thread.  It should be a struct of 4 integers, such as:
+ *   struct bbox {
+ *     int x1,
+ *     int x2,
+ *     int y1,
+ *     int y2
+ *   }
+ * The worker will render in the range from (x1, y1) to (x2-1, y2-1).
+ * Note that the upper bound is exclusive.
  */
-void serial()
+void * mandlebrotWorker(void * bbox)
 {
-  for (int j = 0; j < height; ++j) {
-    for (int i = 0; i < width; ++i) {  
+  BBox * b = (BBox *) bbox;
+  for (int j = b->y1; j < b->y2; ++j) {
+    for (int i = b->x1; i < b->x2; ++i) {  
       double x = (double)(i + offsetx) / width * scale;
       double y = (double)(j + offsety) / height * scale;
       unsigned char value = (unsigned char)(mandlebrot(x, y) * 255);
@@ -111,15 +133,27 @@ void serial()
       data[j*height*3+2+i*3] = value >> 2;
     }
   }
+  if (renderer == 2)
+    pthread_exit(0);
 }
 
-
 /*
- * 2. pthread implementation of the mandlebrot set.
+ * Thread-spawning function.  Blocks until all threads have finished.
  */
-void threaded()
+void threaded(int numThreads)
 {
 
+  for (int i = 0; i < numThreads; ++i) {
+    int err = pthread_create(&workers[i], NULL, mandlebrotWorker, (void *)i);
+    if (err)
+      fprintf(stderr, "ERROR: Failed to create thread with exit code %d", err);
+  }
+  for (int i = 0; i < numThreads; ++i) {
+    int err = pthread_join(workers[i], NULL);
+    if (err)
+      fprintf(stderr, "ERROR: Failed to join thread %d with code %d", i, err);
+  }
+  delete[] workers;
 }
 
 
@@ -138,7 +172,7 @@ void cuda()
 void drawText(int x, int y, const string& text)
 {
   glRasterPos2i(x, y);
-  for (int i = 0; i < (int)text.size(); i++) 
+  for (int i = 0; i < (int)text.size(); i++)
     glutBitmapCharacter(GLUT_BITMAP_8_BY_13, text[i]);
 }
 
@@ -154,9 +188,9 @@ void render()
     /* Computes the Mandlebrot fractal for this frame */
     fractalTimer.start();
     if (renderer == 1)
-      serial();
+      mandlebrotWorker((void *)&windowBox);
     else if (renderer == 2)
-      threaded();
+      threaded(4);
     else
       cuda();
     elapsed_fractalTimer = fractalTimer.getMilliseconds();
@@ -221,6 +255,13 @@ void init()
 {
   /* Allocate a BGR buffer at the window size */
   data = new unsigned char[width * height * 3];
+  /* Initialise buffers for the threads */
+  workers = new pthread_t[16];
+
+  windowBox.x1 = 0;
+  windowBox.y1 = 0;
+  windowBox.x2 = width;
+  windowBox.y2 = height;
 
   /* We will use a 2D texture and render the fractal as a fullscreen quad.
       The texture itself contains a copy of the buffer, on the GPU, and is
@@ -250,6 +291,7 @@ void init()
 void cleanup()
 {
   delete[] data;
+  delete[] workers;
   glutDestroyWindow(glutGetWindow());
 }
 
@@ -357,7 +399,7 @@ int main(int argc, char* argv[])
   glutInitDisplayMode(GLUT_DOUBLE);
   glutCreateWindow("Mandlebrot"); 
 
-  /* OpenGL setup */
+  /* setup */
   init();
 
   /* GLUT Special callback functions */

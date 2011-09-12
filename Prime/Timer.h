@@ -8,15 +8,17 @@
 #pragma once
 #ifdef _WIN32 
     #include <windows.h>
+    #ifndef PRIME_EXPORTS
+      #define DECLSPEC __declspec(dllimport)
+    #else
+      #define DECLSPEC __declspec(dllexport)
+    #endif
 #else          
     #include <sys/time.h>
+    #define DECLSPEC
 #endif
 
-#ifndef PRIME_EXPORTS
-  #define DECLSPEC __declspec(dllimport)
-#else
-  #define DECLSPEC __declspec(dllexport)
-#endif
+
 
 
 /**

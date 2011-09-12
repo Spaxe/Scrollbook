@@ -44,5 +44,6 @@ _ReSharper*/
 # Office Temp Files
 ~$*
 
-# Executable files
+# Binary files
 *.exe
+*.o
