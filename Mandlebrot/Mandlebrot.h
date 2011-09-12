@@ -43,6 +43,7 @@ struct BBox {
  */
 class TextureRenderer
 {
+protected:
   int width;                        /// Rendering context variables
   int height;
   
@@ -58,9 +59,6 @@ class TextureRenderer
   /// Controls
   bool drag;
   bool zoom;
-
-  /// Internal buffer for the window
-  int limit;
 
   /// OpenGL housekeeping
   GLuint textureID;
@@ -120,13 +118,17 @@ public:
 class Mandlebrot : public TextureRenderer
 {
 public:
+  /// limit of the calculation loop
+  int limit;
+
+
   /** 
    * Returns the pixel intensity at imaginary plane (cr, ci)
    * The Mandlebrot fractal is embarrassingly parallel---one could compute it
    * pixel by pixel with no interference.  The formula is simple and implemented below.
    * This function returns the fractal at (cr, ci) in the range [0, 1]
    */
-  static inline float pixel_at(float cr, float ci); 
+  inline float pixel_at(float cr, float ci); 
   
   
   /**
@@ -142,13 +144,13 @@ public:
    * The worker will render in the range from (x1, y1) to (x2-1, y2-1).
    * Note that the upper bound is exclusive.
    */
-  static inline void worker(BBox * bbox);
+  inline void worker(BBox * bbox);
   
   
   /*
    * worker function wrapper for pthread.
    */
-  static void * run_one_worker(void * bbox);
+  void * run_one_worker(void * bbox);
 };
 
 
@@ -158,12 +160,12 @@ public:
 class Main
 {
   int numWorkers;
-  static TextureRenderer renderer;
-  static pthread_t * workers;
+  TextureRenderer renderer;
+  pthread_t * workers;
 
-  static int rendererType;
-  static Time fractalTimer;
-  static double elapsed_fractalTimer;
+  int rendererType;
+  Time fractalTimer;
+  double elapsed_fractalTimer;
   
 public:
   Main();
@@ -172,17 +174,17 @@ public:
   /**
    * Runs the mandlebrot fractal in the main process.
    */
-  static void mandlebrot_single();
+  void mandlebrot_single();
   
   /**
    * Runs the mandlebrot fractal with new threads.
    */
-  static void mandlebrot_threaded(int numThreads);
+  void mandlebrot_threaded(int numThreads);
   
   /**
    * Runs the Mandlebrot fractal with CUDA.
    */ 
-  static void mandlebrot_cuda();
+  void mandlebrot_cuda();
   
   /**
    * Starts the program.
@@ -191,8 +193,6 @@ public:
   
   /**
    * Starts profiling the functions via the renderer.
-   * due toe GLUT this function must be static.
-   * Do not call this function directly.
    */
-  static void profile();
+  void profile();
 };

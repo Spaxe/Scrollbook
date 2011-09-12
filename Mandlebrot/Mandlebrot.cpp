@@ -11,10 +11,10 @@
 
 #ifdef _WIN32
   #include "../GL/glew.h"
-  #include "../GL/glut.h"
+  #include "../GL/glfw.h"
 #else
-  #include "../GL/glew.h"
-  #include <GL/glut.h>
+  #include <GL/glew.h>
+  #include <GL/glfw.h>
 #endif
 
 #include "../Prime/Timer.h"
@@ -23,8 +23,8 @@ using namespace std;
 
 ///////////////////////////////////////////////////////////////////////////
 /// Main program entry
-Main::Main()
- : renderer(512, 512) // TODO give command line options for window
+Main::Main()  // TODO give command line options for window
+ : fractalTimer(), renderer(512, 512)
 {
   rendererType = 1;
   numWorkers = 4;
@@ -39,30 +39,36 @@ Main::~Main()
 void Main::start()
 {
   renderer.init();
+  // Main program loop
+  while (true) {
+    // Runs the Mandlebrot calculations
+    fractalTimer.start();
+    profile();
+    elapsed_fractalTimer = fractalTimer.getMilliseconds();
+    renderer.drawFullscreenQuad();
+    handleInputs();
+  }
 }
 
 void Main::profile()
 {
-  fractalTimer.start();
   if (rendererType == 1)
     mandlebrot_single();
   else if (rendererType == 2)
     mandlebrot_threaded(4);
   else
     mandlebrot_cuda();
-  elapsed_fractalTimer = fractalTimer.getMilliseconds();
-  renderer->drawFullscreenQuad();
 }
 
 void Main::mandlebrot_single()
 {
-  Mandlebrot::worker(this->renderer->bbox);
+  Mandlebrot::worker(renderer.bbox);
 }
 
 void Main::mandlebrot_threaded(int numThreads)
 {
   for (int i = 0; i < numThreads; ++i) {
-    int err = pthread_create(&workers[i], NULL, mandlebrotWorker, (void *)i);
+    int err = pthread_create(&workers[i], NULL, run_one_worker, (void *)i);
     if (err)
       fprintf(stderr, "ERROR: Failed to create thread with exit code %d", err);
   }
@@ -105,7 +111,7 @@ void Mandlebrot::worker(BBox * bbox)
     for (int i = bbox->x1; i < bbox->x2; ++i) {  
       double x = (double)(i + offsetx) / width * scale;
       double y = (double)(j + offsety) / height * scale;
-      unsigned char value = (unsigned char)(mandlebrot(x, y) * 255);
+      unsigned char value = (unsigned char)(pixel_at(x, y) * 255);
       data[j*height*3+i*3] = value;
       data[j*height*3+1+i*3] = value >> 1;
       data[j*height*3+2+i*3] = value >> 2;
@@ -135,29 +141,60 @@ TextureRenderer::TextureRenderer(int width, int height)
   
   mx = my = 0;
   drag = zoom = false;
-  renderer = 1;
   limit = 32;
   
-  elapsed_timer = elapsed_fractalTimer = 0.0;
+  elapsed_timer = 0.0;
   modeText = "1: CPU (single thread)";
   computeText = "Time/fractal: ";
   fpsText = "Time/frame: ";
+
+  glfwInit();
 }
 
 TextureRenderer::~TextureRenderer()
 {
   delete[] data;
-  glutDestroyWindow(glutGetWindow());
+  glfwTerminate();
 }
 
 
 void TextureRenderer::drawText(int x, int y, const string& text)
 {
-  glRasterPos2i(x, y);
-  for (int i = 0; i < (int)text.size(); i++)
-    glutBitmapCharacter(GLUT_BITMAP_8_BY_13, text[i]);
+  // glRasterPos2i(x, y);
+  // for (int i = 0; i < (int)text.size(); i++)
+    //glutBitmapCharacter(GLUT_BITMAP_8_BY_13, text[i]);
 }
 
+
+void TextureRenderer::init()
+{
+  /* Fire off GLFW */
+  int err;
+  err = glfwOpenWindow(width, height, 8, 8, 8, 8, 0, 0, GLFW_WINDOW);
+  if (err != GL_TRUE)
+    cerr << "Unable to initiate an OpenGL rendering context." << endl;
+  glfwSetWindowTitle("Mandlebrot"); 
+
+  /* We will use a 2D texture and render the fractal as a fullscreen quad.
+      The texture itself contains a copy of the buffer, on the GPU, and is
+      rendered to screen */
+  glGenTextures(1, &textureID);
+  glBindTexture(GL_TEXTURE_2D, textureID);
+  glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+  glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+  glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
+  glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
+  glTexImage2D(GL_TEXTURE_2D,
+                0, 3, width, height, 0, GL_BGR_EXT, 
+                GL_UNSIGNED_BYTE, data);
+
+  /* OpenGL Settings */
+  glMatrixMode(GL_PROJECTION);
+  glOrtho(0, width, 0, height, -1.0, 1.0);
+  glViewport(0, 0, width, height);
+  glClearColor(0, 0, 0, 0);
+  glColor3f(1, 1, 1);
+}
 
 
 void TextureRenderer::drawFullscreenQuad()
@@ -200,47 +237,7 @@ void TextureRenderer::drawFullscreenQuad()
   // drawText(0, height-13, modeText);
   // drawText(0, height-26, computeText);
   // drawText(0, height-39, fpsText);
-  glutSwapBuffers();
-  ///////////////////////////////////////////////////////////
-  glutPostRedisplay();
-}
-
-
-void TextureRenderer::init(int argc, char * argv[])
-{
-  /* Fire off GLUT */
-  
-  glutInitWindowSize(width, height); 
-  glutInitDisplayMode(GLUT_DOUBLE);
-  glutCreateWindow("Mandlebrot"); 
-
-  /* We will use a 2D texture and render the fractal as a fullscreen quad.
-      The texture itself contains a copy of the buffer, on the GPU, and is
-      rendered to screen */
-  glGenTextures(1, &textureID);
-  glBindTexture(GL_TEXTURE_2D, textureID);
-  glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-  glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-  glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
-  glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
-  glTexImage2D(GL_TEXTURE_2D,
-                0, 3, width, height, 0, GL_BGR_EXT, 
-                GL_UNSIGNED_BYTE, data);
-
-  /* OpenGL Settings */
-  glMatrixMode(GL_PROJECTION);
-  glOrtho(0, width, 0, height, -1.0, 1.0);
-  glViewport(0, 0, width, height);
-  glClearColor(0, 0, 0, 0);
-  glColor3f(1, 1, 1);
-  
-  /* GLUT Special callback functions */
-  glutDisplayFunc(Main::profile);
-  glutKeyboardFunc(TextureRenderer::handleKeys);
-  glutMouseFunc(TextureRenderer::handleMouse);
-  glutMotionFunc(TextureRenderer::handleMouseMove);
-
-  glutMainLoop();
+  glfwSwapBuffers();
 }
 
 
@@ -332,7 +329,6 @@ void TextureRenderer::handleMouseMove(int x, int y)
     
 int main(int argc, char* argv[])
 {    
-  glutInit(&argc, argv);
   return EXIT_SUCCESS;
 }
 
