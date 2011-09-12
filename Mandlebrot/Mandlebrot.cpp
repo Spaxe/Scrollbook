@@ -26,13 +26,10 @@ using namespace std;
 Main::Main()  // TODO give command line options for window
  : fractalTimer(), renderer(512, 512)
 {
-  numWorkers = 4;
-  workers = new pthread_t[numWorkers];
 }
 
 Main::~Main()
 {
-  delete[] workers;
 }
 
 void Main::start()
@@ -61,25 +58,13 @@ void Main::profile()
 
 void Main::mandlebrot_single()
 {
-  renderer.worker(&renderer.windowBBox);
+  renderer.worker();
 }
 
 void Main::mandlebrot_threaded(int numThreads)
 {
-  /*
-  for (int i = 0; i < numThreads; ++i) {
-    int err = pthread_create(&workers[i], NULL, run_one_worker, (void *)i);
-    if (err)
-      fprintf(stderr, "ERROR: Failed to create thread with exit code %d", err);
-  }
-  for (int i = 0; i < numThreads; ++i) {
-    int err = pthread_join(workers[i], NULL);
-    if (err)
-      fprintf(stderr, "ERROR: Failed to join thread %d with code %d", i, err);
-  }
-  */
+  renderer.__mandlebrot_threaded(numThreads);
 }
-
 
 // TODO
 void Main::mandlebrot_cuda()
@@ -93,13 +78,14 @@ void Main::mandlebrot_cuda()
 Mandlebrot::Mandlebrot(int width, int height)
   : TextureRenderer(width, height)
 {
-
+  numWorkers = 4;
+  workers = new pthread_t[numWorkers];
 }
 
 
 Mandlebrot::~Mandlebrot()
 {
-
+  delete[] workers;
 }
 
 
@@ -119,10 +105,11 @@ float Mandlebrot::pixel_at(float cr, float ci)
 }
 
 
-void Mandlebrot::worker(BBox * bbox)
+void Mandlebrot::worker()
 {
-  for (int j = bbox->y1; j < bbox->y2; ++j) {
-    for (int i = bbox->x1; i < bbox->x2; ++i) {  
+  BBox b = bbox;
+  for (int j = b.y1; j < b.y2; ++j) {
+    for (int i = b.x1; i < b.x2; ++i) {  
       float x = (float)(i + offsetx) / width * scale;
       float y = (float)(j + offsety) / height * scale;
       unsigned char value = (unsigned char)(pixel_at(x, y) * 255);
@@ -134,17 +121,32 @@ void Mandlebrot::worker(BBox * bbox)
 }
 
 
-void * Mandlebrot::run_one_worker(void * bbox)
+void Mandlebrot::__mandlebrot_threaded(int numThreads)
 {
-  BBox * b = (BBox *) bbox;
-  Mandlebrot::worker(b);
+  for (int i = 0; i < numThreads; ++i) {
+    int err = pthread_create(&workers[i], NULL, 
+                                    &Mandlebrot::__run_one_worker, this);
+    if (err)
+      fprintf(stderr, "ERROR: Failed to create thread with exit code %d", err);
+  }
+  for (int i = 0; i < numThreads; ++i) {
+    int err = pthread_join(workers[i], NULL);
+    if (err)
+      fprintf(stderr, "ERROR: Failed to join thread %d with code %d", i, err);
+  }
+}
+
+
+void * Mandlebrot::__run_one_worker(void * obj)
+{
+  reinterpret_cast<Mandlebrot *>(obj)->worker();
   pthread_exit(NULL);
   return NULL;
 }
 
 
 TextureRenderer::TextureRenderer(int width, int height)
-  : windowBBox(0, 0, width, height)
+  : bbox(0, 0, width, height)
 {
   this->width = width;
   this->height = height;
@@ -257,6 +259,7 @@ void TextureRenderer::drawFullscreenQuad()
   // drawText(0, height-13, modeText);
   // drawText(0, height-26, computeText);
   // drawText(0, height-39, fpsText);
+  cout << "Rendered one frame." << endl;
   glfwSwapBuffers();
 }
 

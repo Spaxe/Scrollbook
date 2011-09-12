@@ -76,7 +76,7 @@ protected:
   
 public:
   // Window bounding box
-  BBox windowBBox;
+  BBox bbox;
   unsigned char * data;             /// Texture buffer on the CPU
   bool running;
   int rendererType;
@@ -128,6 +128,9 @@ public:
 class Mandlebrot : public TextureRenderer
 {
 public:
+  int numWorkers;
+  pthread_t * workers;
+
   Mandlebrot(int width, int height);
   virtual ~Mandlebrot();
   /** 
@@ -152,13 +155,14 @@ public:
    * The worker will render in the range from (x1, y1) to (x2-1, y2-1).
    * Note that the upper bound is exclusive.
    */
-  inline void worker(BBox * bbox);
+  inline void worker();
   
-  
+
   /*
    * worker function wrapper for pthread.
    */
-  void * run_one_worker(void * bbox);
+  void __mandlebrot_threaded(int numThreads);
+  static void * __run_one_worker(void * obj);
 };
 
 
@@ -167,10 +171,7 @@ public:
  */
 class Main
 {
-  int numWorkers;
   Mandlebrot renderer;
-  pthread_t * workers;
-
   Time fractalTimer;
   double elapsed_fractalTimer;
   
