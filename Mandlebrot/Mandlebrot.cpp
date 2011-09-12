@@ -2,13 +2,6 @@
   Xavier Ho, s2674674
   contact@xavierho.com
 */
-#include <cstdlib>
-#include <cstdio>
-#include <cmath>
-#include <cstring>
-#include <sstream>
-#include <string>
-
 #ifdef _WIN32
   #include "../GL/glew.h"
   #include "../GL/glfw.h"
@@ -17,6 +10,13 @@
   #include <GL/glfw.h>
 #endif
 
+#include <iostream>
+#include <cstdlib>
+#include <cmath>
+#include <cstring>
+#include <sstream>
+#include <string>
+
 #include "../Prime/Timer.h"
 #include "Mandlebrot.h"
 using namespace std;
@@ -24,7 +24,7 @@ using namespace std;
 ///////////////////////////////////////////////////////////////////////////
 /// Main program entry
 Main::Main()  // TODO give command line options for window
- : fractalTimer(), renderer(512, 512)
+ : fractalTimer(), renderer(512, 512, 32)
 {
   rendererType = 1;
   numWorkers = 4;
@@ -46,7 +46,7 @@ void Main::start()
     profile();
     elapsed_fractalTimer = fractalTimer.getMilliseconds();
     renderer.drawFullscreenQuad();
-    handleInputs();
+    //handleInputs();
   }
 }
 
@@ -62,11 +62,12 @@ void Main::profile()
 
 void Main::mandlebrot_single()
 {
-  Mandlebrot::worker(renderer.bbox);
+  renderer.worker(&renderer.windowBBox);
 }
 
 void Main::mandlebrot_threaded(int numThreads)
 {
+  /*
   for (int i = 0; i < numThreads; ++i) {
     int err = pthread_create(&workers[i], NULL, run_one_worker, (void *)i);
     if (err)
@@ -77,6 +78,7 @@ void Main::mandlebrot_threaded(int numThreads)
     if (err)
       fprintf(stderr, "ERROR: Failed to join thread %d with code %d", i, err);
   }
+  */
 }
 
 
@@ -89,6 +91,19 @@ void Main::mandlebrot_cuda()
 
 ///////////////////////////////////////////////////////////////////////////
 /// Mandlebrot class
+Mandlebrot::Mandlebrot(int width, int height, int limit)
+  : TextureRenderer(width, height)
+{
+  this->limit = limit;
+}
+
+
+Mandlebrot::~Mandlebrot()
+{
+
+}
+
+
 float Mandlebrot::pixel_at(float cr, float ci)
 {
   float x = 0, y = 0;
@@ -109,8 +124,8 @@ void Mandlebrot::worker(BBox * bbox)
 {
   for (int j = bbox->y1; j < bbox->y2; ++j) {
     for (int i = bbox->x1; i < bbox->x2; ++i) {  
-      double x = (double)(i + offsetx) / width * scale;
-      double y = (double)(j + offsety) / height * scale;
+      float x = (float)(i + offsetx) / width * scale;
+      float y = (float)(j + offsety) / height * scale;
       unsigned char value = (unsigned char)(pixel_at(x, y) * 255);
       data[j*height*3+i*3] = value;
       data[j*height*3+1+i*3] = value >> 1;
@@ -124,7 +139,8 @@ void * Mandlebrot::run_one_worker(void * bbox)
 {
   BBox * b = (BBox *) bbox;
   Mandlebrot::worker(b);
-  pthread_exit(0);
+  pthread_exit(NULL);
+  return NULL;
 }
 
 
@@ -141,7 +157,6 @@ TextureRenderer::TextureRenderer(int width, int height)
   
   mx = my = 0;
   drag = zoom = false;
-  limit = 32;
   
   elapsed_timer = 0.0;
   modeText = "1: CPU (single thread)";
@@ -245,15 +260,16 @@ void TextureRenderer::handleKeys(unsigned char key, int x, int y)
 {
   switch (key) {
   case 27: /* ESC */
-    cleanup();
+    // cleanup();
     exit(EXIT_SUCCESS);
     break;
-  case 'h': /* Home view */
+    /*
+  case 'h': // Home view 
     scale = 2.f;
     offsetx = -width*2/3;
     offsety = -height/3;
     break;
-  case 'w': /* ^<V> */
+  case 'w': // ^<V> 
     offsety += height >> 4;
     break;
   case 'a':
@@ -265,13 +281,13 @@ void TextureRenderer::handleKeys(unsigned char key, int x, int y)
   case 'd':
     offsetx += width >> 4;
     break;
-  case 'q': /* Zoom out and in */
+  case 'q': // Zoom out and in 
     scale += 0.25f;
     break;
   case 'e':
     scale -= 0.25f;
     break;
-  case '-': /* Quality settings */
+  case '-': // Quality settings 
     limit /= 2;
     if (limit < 1) limit = 2;
     break;
@@ -279,15 +295,16 @@ void TextureRenderer::handleKeys(unsigned char key, int x, int y)
     limit *= 2;
     if (limit > 1024) limit = 1024;
     break;
-  case '1': /* Serial */
+  case '1': // Serial 
     renderer = 1;
     break;
-  case '2': /* Threaded */
+  case '2': // Threaded 
     renderer = 2;
     break;
-  case '3': /* CUDA */
+  case '3': // CUDA
     renderer = 3;
     break;
+    */
   default:
     break;
   }
@@ -296,6 +313,7 @@ void TextureRenderer::handleKeys(unsigned char key, int x, int y)
 
 void TextureRenderer::handleMouse(int button, int state, int x, int y)
 {
+  /*
   mx = x;
   my = y;
   if (button == GLUT_LEFT_BUTTON && state == GLUT_DOWN)
@@ -306,6 +324,7 @@ void TextureRenderer::handleMouse(int button, int state, int x, int y)
     zoom = false;
     drag = false;
   }
+  */
 }
 
 

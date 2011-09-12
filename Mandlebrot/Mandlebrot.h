@@ -121,7 +121,8 @@ public:
   /// limit of the calculation loop
   int limit;
 
-
+  Mandlebrot(int width, int height, int limit);
+  virtual ~Mandlebrot();
   /** 
    * Returns the pixel intensity at imaginary plane (cr, ci)
    * The Mandlebrot fractal is embarrassingly parallel---one could compute it
@@ -160,7 +161,7 @@ public:
 class Main
 {
   int numWorkers;
-  TextureRenderer renderer;
+  Mandlebrot renderer;
   pthread_t * workers;
 
   int rendererType;
