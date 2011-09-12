@@ -1,7 +1,7 @@
 /**
   Xavier Ho, s2674674
   contact@xavierho.com
-* /
+*/
 #include <cstdlib>
 #include <cstdio>
 #include <cmath>
@@ -10,75 +10,83 @@
 #include <string>
 
 #ifdef _WIN32
-  #include "../include/pthread.h" // Because windows doesn't have pthread.  What.
   #include "../GL/glew.h"
   #include "../GL/glut.h"
 #else
-  #include <pthread.h>
   #include "../GL/glew.h"
   #include <GL/glut.h>
 #endif
 
 #include "../Prime/Timer.h"
+#include "Mandlebrot.h"
 using namespace std;
 
-/* Width and height of the window */
-int width = 1024;   
-int height = 1024;
-
-/* Interaction states */
-float scale = 2.f;
-int offsetx = -width*2/3;
-int offsety = -height/3;
-
-/* Mouse location */
-int mx = 0;
-int my = 0;
-
-/* Controls */
-bool drag = false;
-bool zoom = false;
-int renderer = 1;
-
-/* Internal buffer for the fractal */
-unsigned char * data = NULL;
-int limit = 32;
-
-/* OpenGL housekeeping */
-GLuint textureID = 0;
-GLuint vert = 0, frag = 0, prog = 0;
-bool cudaRendering = false;
-
-/* Threading */
-pthread_t * workers;
-struct BBox {
-  int x1;
-  int y1;
-  int x2;
-  int y2;
-};
-BBox windowBox;
-
-
-/* Debug */
-Time timer;
-Time fractalTimer;
-double elapsed_timer = 0.0;
-double elapsed_fractalTimer = 0.0;
-string modeText = "1: CPU (single thread)";
-string computeText = "Time/fractal: ";
-string fpsText = "Time/frame: ";
-
-
-/*
- * The Mandlebrot fractal is embarrassingly parallel---one could compute it
- * pixel by pixel with no interference.  The formula is simple and implemented below.
- * This function returns the fractal at (cr, ci) in the range [0, 1]
- */
-double mandlebrot(double cr, double ci)
+///////////////////////////////////////////////////////////////////////////
+/// Main program entry
+Main::Main()
+ : renderer(512, 512) // TODO give command line options for window
 {
-  double x = 0, y = 0;
-  double tmp;
+  rendererType = 1;
+  numWorkers = 4;
+  workers = new pthread_t[numWorkers];
+}
+
+Main::~Main()
+{
+  delete[] workers;
+}
+
+void Main::start()
+{
+  renderer.init();
+}
+
+void Main::profile()
+{
+  fractalTimer.start();
+  if (rendererType == 1)
+    mandlebrot_single();
+  else if (rendererType == 2)
+    mandlebrot_threaded(4);
+  else
+    mandlebrot_cuda();
+  elapsed_fractalTimer = fractalTimer.getMilliseconds();
+  renderer->drawFullscreenQuad();
+}
+
+void Main::mandlebrot_single()
+{
+  Mandlebrot::worker(this->renderer->bbox);
+}
+
+void Main::mandlebrot_threaded(int numThreads)
+{
+  for (int i = 0; i < numThreads; ++i) {
+    int err = pthread_create(&workers[i], NULL, mandlebrotWorker, (void *)i);
+    if (err)
+      fprintf(stderr, "ERROR: Failed to create thread with exit code %d", err);
+  }
+  for (int i = 0; i < numThreads; ++i) {
+    int err = pthread_join(workers[i], NULL);
+    if (err)
+      fprintf(stderr, "ERROR: Failed to join thread %d with code %d", i, err);
+  }
+}
+
+
+// TODO
+void Main::mandlebrot_cuda()
+{
+
+}
+
+
+///////////////////////////////////////////////////////////////////////////
+/// Mandlebrot class
+float Mandlebrot::pixel_at(float cr, float ci)
+{
+  float x = 0, y = 0;
+  float tmp;
   int i = 0;
   while ((x*x + y*y < 4) && (i++ < limit)) {
       tmp = x*x - y*y + cr;
@@ -91,24 +99,10 @@ double mandlebrot(double cr, double ci)
 }
 
 
-/*
- * CPU implementation of the mandlebrot set.
- * bbox is the bounding box of the retangle to be calculated by this
- * thread.  It should be a struct of 4 integers, such as:
- *   struct bbox {
- *     int x1,
- *     int x2,
- *     int y1,
- *     int y2
- *   }
- * The worker will render in the range from (x1, y1) to (x2-1, y2-1).
- * Note that the upper bound is exclusive.
- */
-void * mandlebrotWorker(void * bbox)
+void Mandlebrot::worker(BBox * bbox)
 {
-  BBox * b = (BBox *) bbox;
-  for (int j = b->y1; j < b->y2; ++j) {
-    for (int i = b->x1; i < b->x2; ++i) {  
+  for (int j = bbox->y1; j < bbox->y2; ++j) {
+    for (int i = bbox->x1; i < bbox->x2; ++i) {  
       double x = (double)(i + offsetx) / width * scale;
       double y = (double)(j + offsety) / height * scale;
       unsigned char value = (unsigned char)(mandlebrot(x, y) * 255);
@@ -117,73 +111,62 @@ void * mandlebrotWorker(void * bbox)
       data[j*height*3+2+i*3] = value >> 2;
     }
   }
-  if (renderer == 2)
-    pthread_exit(0);
 }
 
-/*
- * Thread-spawning function.  Blocks until all threads have finished.
- */
-void threaded(int numThreads)
+
+void * Mandlebrot::run_one_worker(void * bbox)
 {
-
-  for (int i = 0; i < numThreads; ++i) {
-    int err = pthread_create(&workers[i], NULL, mandlebrotWorker, (void *)i);
-    if (err)
-      fprintf(stderr, "ERROR: Failed to create thread with exit code %d", err);
-  }
-  for (int i = 0; i < numThreads; ++i) {
-    int err = pthread_join(workers[i], NULL);
-    if (err)
-      fprintf(stderr, "ERROR: Failed to join thread %d with code %d", i, err);
-  }
-  delete[] workers;
+  BBox * b = (BBox *) bbox;
+  Mandlebrot::worker(b);
+  pthread_exit(0);
 }
 
 
-/*
- * CUDA-enabled implementation of the mandlebrot set.
- */
-void cuda()
+TextureRenderer::TextureRenderer(int width, int height)
+  : windowBBox(0, 0, width, height)
 {
+  this->width = width;
+  this->height = height;
+  data = new unsigned char[width * height * 3];
+  
+  scale = 2.f;
+  offsetx = -width*2/3;
+  offsety = -height/3;
+  
+  mx = my = 0;
+  drag = zoom = false;
+  renderer = 1;
+  limit = 32;
+  
+  elapsed_timer = elapsed_fractalTimer = 0.0;
+  modeText = "1: CPU (single thread)";
+  computeText = "Time/fractal: ";
+  fpsText = "Time/frame: ";
+}
 
+TextureRenderer::~TextureRenderer()
+{
+  delete[] data;
+  glutDestroyWindow(glutGetWindow());
 }
 
 
-/*
- * Draws a string using GLUT's built-in bitmaps
- */
-void drawText(int x, int y, const string& text)
+void TextureRenderer::drawText(int x, int y, const string& text)
 {
   glRasterPos2i(x, y);
   for (int i = 0; i < (int)text.size(); i++)
     glutBitmapCharacter(GLUT_BITMAP_8_BY_13, text[i]);
 }
 
-/*
- * Rendering the Mandlebrot fractal on a fullscreen quad.
- */
-void render()
+
+
+void TextureRenderer::drawFullscreenQuad()
 {
-  // profiling
-  timer.start();
+  /* Updates fractal to the GPU memory and display */
+  glTexSubImage2D(GL_TEXTURE_2D, 
+                  0, 0, 0, width, height, GL_BGR_EXT, 
+                  GL_UNSIGNED_BYTE, data);
 
-  if (data != NULL) {
-    /* Computes the Mandlebrot fractal for this frame */
-    fractalTimer.start();
-    if (renderer == 1)
-      mandlebrotWorker((void *)&windowBox);
-    else if (renderer == 2)
-      threaded(4);
-    else
-      cuda();
-    elapsed_fractalTimer = fractalTimer.getMilliseconds();
-
-    /* Updates fractal to the GPU memory and display */
-    glTexSubImage2D(GL_TEXTURE_2D, 
-                    0, 0, 0, width, height, GL_BGR_EXT, 
-                    GL_UNSIGNED_BYTE, data);
-  }
   /* Draw the fullscreen quad */
   glMatrixMode(GL_MODELVIEW);
   glLoadIdentity();
@@ -206,46 +189,30 @@ void render()
 
   ///////////////////////////////////////////////////////////
   // Debug stuff
-  elapsed_timer = timer.getMilliseconds();
-  ostringstream fpsBuffer, msBuffer, fractalBuffer;
-  msBuffer << elapsed_timer;
-  fpsBuffer << 1 / elapsed_timer * 1000;
-  fractalBuffer << elapsed_fractalTimer;
-  fpsText = "Time/frame: " + msBuffer.str() + " ms  (" + fpsBuffer.str() + " fps)";
-  computeText = "Time/fractal: " + fractalBuffer.str() + " ms";
-  glDisable(GL_TEXTURE_2D);
-  drawText(0, height-13, modeText);
-  drawText(0, height-26, computeText);
-  drawText(0, height-39, fpsText);
+  // elapsed_timer = timer.getMilliseconds();
+  // ostringstream fpsBuffer, msBuffer, fractalBuffer;
+  // msBuffer << elapsed_timer;
+  // fpsBuffer << 1 / elapsed_timer * 1000;
+  // fractalBuffer << elapsed_fractalTimer;
+  // fpsText = "Time/frame: " + msBuffer.str() + " ms  (" + fpsBuffer.str() + " fps)";
+  // computeText = "Time/fractal: " + fractalBuffer.str() + " ms";
+  // glDisable(GL_TEXTURE_2D);
+  // drawText(0, height-13, modeText);
+  // drawText(0, height-26, computeText);
+  // drawText(0, height-39, fpsText);
   glutSwapBuffers();
   ///////////////////////////////////////////////////////////
   glutPostRedisplay();
 }
 
 
-/*
- * Refresh up to 60FPS
- */
-void idle()
+void TextureRenderer::init(int argc, char * argv[])
 {
-  glutPostRedisplay();
-}
-
-
-/*
- * Initialises the OpenGL rendering context and allocates buffer
- */
-void init()
-{
-  /* Allocate a BGR buffer at the window size */
-  data = new unsigned char[width * height * 3];
-  /* Initialise buffers for the threads */
-  workers = new pthread_t[16];
-
-  windowBox.x1 = 0;
-  windowBox.y1 = 0;
-  windowBox.x2 = width;
-  windowBox.y2 = height;
+  /* Fire off GLUT */
+  
+  glutInitWindowSize(width, height); 
+  glutInitDisplayMode(GLUT_DOUBLE);
+  glutCreateWindow("Mandlebrot"); 
 
   /* We will use a 2D texture and render the fractal as a fullscreen quad.
       The texture itself contains a copy of the buffer, on the GPU, and is
@@ -266,24 +233,18 @@ void init()
   glViewport(0, 0, width, height);
   glClearColor(0, 0, 0, 0);
   glColor3f(1, 1, 1);
+  
+  /* GLUT Special callback functions */
+  glutDisplayFunc(Main::profile);
+  glutKeyboardFunc(TextureRenderer::handleKeys);
+  glutMouseFunc(TextureRenderer::handleMouse);
+  glutMotionFunc(TextureRenderer::handleMouseMove);
+
+  glutMainLoop();
 }
 
 
-/*
- * Free any resources claimed
- */
-void cleanup()
-{
-  delete[] data;
-  delete[] workers;
-  glutDestroyWindow(glutGetWindow());
-}
-
-
-/*
- * Handles user keyboard input
- */
-void handleKeys(unsigned char key, int x, int y)
+void TextureRenderer::handleKeys(unsigned char key, int x, int y)
 {
   switch (key) {
   case 27: /* ESC */
@@ -336,10 +297,7 @@ void handleKeys(unsigned char key, int x, int y)
 }
 
 
-/*
- * Handles user mouse input
- */
-void handleMouse(int button, int state, int x, int y)
+void TextureRenderer::handleMouse(int button, int state, int x, int y)
 {
   mx = x;
   my = y;
@@ -354,10 +312,7 @@ void handleMouse(int button, int state, int x, int y)
 }
 
 
-/*
- * Handles user mouse dragging input
- */
-void handleMouseMove(int x, int y)
+void TextureRenderer::handleMouseMove(int x, int y)
 {
   if (drag) {
     offsetx += (mx - x);
@@ -377,23 +332,7 @@ void handleMouseMove(int x, int y)
     
 int main(int argc, char* argv[])
 {    
-  /* Fire off GLUT */
   glutInit(&argc, argv);
-  glutInitWindowSize(width, height); 
-  glutInitDisplayMode(GLUT_DOUBLE);
-  glutCreateWindow("Mandlebrot"); 
-
-  /* setup */
-  init();
-
-  /* GLUT Special callback functions */
-  glutDisplayFunc(render);
-  glutKeyboardFunc(handleKeys);
-  glutMouseFunc(handleMouse);
-  glutMotionFunc(handleMouseMove);
-  glutIdleFunc(idle);
-
-  glutMainLoop();
   return EXIT_SUCCESS;
 }
 
