@@ -24,9 +24,8 @@ using namespace std;
 ///////////////////////////////////////////////////////////////////////////
 /// Main program entry
 Main::Main()  // TODO give command line options for window
- : fractalTimer(), renderer(512, 512, 32)
+ : fractalTimer(), renderer(512, 512)
 {
-  rendererType = 1;
   numWorkers = 4;
   workers = new pthread_t[numWorkers];
 }
@@ -40,21 +39,21 @@ void Main::start()
 {
   renderer.init();
   // Main program loop
-  while (true) {
+  while (renderer.running) {
     // Runs the Mandlebrot calculations
     fractalTimer.start();
     profile();
     elapsed_fractalTimer = fractalTimer.getMilliseconds();
     renderer.drawFullscreenQuad();
-    //handleInputs();
+    renderer.handleInputs();
   }
 }
 
 void Main::profile()
 {
-  if (rendererType == 1)
+  if (renderer.rendererType == 1)
     mandlebrot_single();
-  else if (rendererType == 2)
+  else if (renderer.rendererType == 2)
     mandlebrot_threaded(4);
   else
     mandlebrot_cuda();
@@ -91,10 +90,10 @@ void Main::mandlebrot_cuda()
 
 ///////////////////////////////////////////////////////////////////////////
 /// Mandlebrot class
-Mandlebrot::Mandlebrot(int width, int height, int limit)
+Mandlebrot::Mandlebrot(int width, int height)
   : TextureRenderer(width, height)
 {
-  this->limit = limit;
+
 }
 
 
@@ -154,9 +153,12 @@ TextureRenderer::TextureRenderer(int width, int height)
   scale = 2.f;
   offsetx = -width*2/3;
   offsety = -height/3;
-  
+  limit = 32;
+
   mx = my = 0;
   drag = zoom = false;
+  running = true;
+  rendererType = 1;
   
   elapsed_timer = 0.0;
   modeText = "1: CPU (single thread)";
@@ -178,6 +180,8 @@ void TextureRenderer::drawText(int x, int y, const string& text)
   // glRasterPos2i(x, y);
   // for (int i = 0; i < (int)text.size(); i++)
     //glutBitmapCharacter(GLUT_BITMAP_8_BY_13, text[i]);
+  // TODO: If time allows, print to screen.
+  cout << text << endl;
 }
 
 
@@ -189,6 +193,7 @@ void TextureRenderer::init()
   if (err != GL_TRUE)
     cerr << "Unable to initiate an OpenGL rendering context." << endl;
   glfwSetWindowTitle("Mandlebrot"); 
+  glfwEnable(GLFW_AUTO_POLL_EVENTS);
 
   /* We will use a 2D texture and render the fractal as a fullscreen quad.
       The texture itself contains a copy of the buffer, on the GPU, and is
@@ -256,80 +261,64 @@ void TextureRenderer::drawFullscreenQuad()
 }
 
 
-void TextureRenderer::handleKeys(unsigned char key, int x, int y)
+void TextureRenderer::handleInputs()
 {
-  switch (key) {
-  case 27: /* ESC */
-    // cleanup();
-    exit(EXIT_SUCCESS);
-    break;
-    /*
-  case 'h': // Home view 
+  handleKeys();
+  handleMouse();
+  handleMouseMove();
+}
+
+
+void TextureRenderer::handleKeys()
+{
+  if (glfwGetKey(GLFW_KEY_ESC) == GLFW_PRESS) // ESC
+    running = false;
+  if (glfwGetKey('H') == GLFW_PRESS) {
     scale = 2.f;
     offsetx = -width*2/3;
     offsety = -height/3;
-    break;
-  case 'w': // ^<V> 
-    offsety += height >> 4;
-    break;
-  case 'a':
-    offsetx -= width >> 4;
-    break;
-  case 's':
+  }
+  if (glfwGetKey('W') == GLFW_PRESS)
     offsety -= height >> 4;
-    break;
-  case 'd':
+  if (glfwGetKey('A') == GLFW_PRESS)
     offsetx += width >> 4;
-    break;
-  case 'q': // Zoom out and in 
+  if (glfwGetKey('S') == GLFW_PRESS)
+    offsety += height >> 4;
+  if (glfwGetKey('D') == GLFW_PRESS)
+    offsetx -= width >> 4;
+  if (glfwGetKey('Q') == GLFW_PRESS)
     scale += 0.25f;
-    break;
-  case 'e':
+  if (glfwGetKey('E') == GLFW_PRESS)
     scale -= 0.25f;
-    break;
-  case '-': // Quality settings 
+  if (glfwGetKey('-') == GLFW_PRESS) {
     limit /= 2;
     if (limit < 1) limit = 2;
-    break;
-  case '+':
+  }
+  if (glfwGetKey('+') == GLFW_PRESS) {
     limit *= 2;
     if (limit > 1024) limit = 1024;
-    break;
-  case '1': // Serial 
-    renderer = 1;
-    break;
-  case '2': // Threaded 
-    renderer = 2;
-    break;
-  case '3': // CUDA
-    renderer = 3;
-    break;
-    */
-  default:
-    break;
   }
+  if (glfwGetKey('1') == GLFW_PRESS)
+    rendererType = 1;
+  if (glfwGetKey('2') == GLFW_PRESS)
+    rendererType = 1;
+  if (glfwGetKey('3') == GLFW_PRESS)
+    rendererType = 1;
 }
 
 
-void TextureRenderer::handleMouse(int button, int state, int x, int y)
+void TextureRenderer::handleMouse()
 {
-  /*
-  mx = x;
-  my = y;
-  if (button == GLUT_LEFT_BUTTON && state == GLUT_DOWN)
-    drag = true;
-  else if (button == GLUT_RIGHT_BUTTON && state == GLUT_DOWN)
-    zoom = true;
-  else {
-    zoom = false;
-    drag = false;
-  }
-  */
+  glfwGetMousePos(&mx, &my);
+  drag = glfwGetMouseButton(GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS;
+  zoom = glfwGetMouseButton(GLFW_MOUSE_BUTTON_RIGHT) == GLFW_PRESS;
 }
 
 
-void TextureRenderer::handleMouseMove(int x, int y)
+void TextureRenderer::handleMouseMove()
 {
+  int x, y;
+  glfwGetMousePos(&x, &y);
   if (drag) {
     offsetx += (mx - x);
     offsety += (y - my);
@@ -348,6 +337,7 @@ void TextureRenderer::handleMouseMove(int x, int y)
     
 int main(int argc, char* argv[])
 {    
+  Main().start();
   return EXIT_SUCCESS;
 }
 

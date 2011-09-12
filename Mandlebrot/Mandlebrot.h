@@ -55,6 +55,9 @@ protected:
   /// Mouse location
   int mx;
   int my;
+ 
+  /// limit of the calculation loop
+  int limit;
 
   /// Controls
   bool drag;
@@ -75,6 +78,8 @@ public:
   // Window bounding box
   BBox windowBBox;
   unsigned char * data;             /// Texture buffer on the CPU
+  bool running;
+  int rendererType;
   
   TextureRenderer(int width, int height);
   virtual ~TextureRenderer();
@@ -92,23 +97,28 @@ public:
   /*
    * Handles user keyboard input
    */
-  void handleKeys(unsigned char key, int x, int y);
+  void handleKeys();
   
   /*
    * Handles user mouse input
    */
-  void handleMouse(int button, int state, int x, int y);
+  void handleMouse();
   
   /*
    * Handles user mouse dragging input
    */
-  void handleMouseMove(int x, int y);
+  void handleMouseMove();
   
   // Helper function, could be refactored out
   /*
    * Draws a string using GLUT's built-in bitmaps
    */
   void drawText(int x, int y, const std::string& text);
+
+  /**
+   * Handles user input from keyboard and mouse
+   */
+  void handleInputs();
 };
 
 
@@ -118,10 +128,7 @@ public:
 class Mandlebrot : public TextureRenderer
 {
 public:
-  /// limit of the calculation loop
-  int limit;
-
-  Mandlebrot(int width, int height, int limit);
+  Mandlebrot(int width, int height);
   virtual ~Mandlebrot();
   /** 
    * Returns the pixel intensity at imaginary plane (cr, ci)
@@ -164,7 +171,6 @@ class Main
   Mandlebrot renderer;
   pthread_t * workers;
 
-  int rendererType;
   Time fractalTimer;
   double elapsed_fractalTimer;
   
@@ -196,4 +202,6 @@ public:
    * Starts profiling the functions via the renderer.
    */
   void profile();
+
+
 };
