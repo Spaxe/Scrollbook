@@ -1,44 +1,42 @@
+///
 /// Author: Xavier Ho (contact@xavierho.com)
-#pragma once
-#ifdef _WIN32
-  #include "../include/pthread.h"
-#else
-  #include <pthread>
-#endif
-
+///
 /// Provides a simple interface to draw texture to the screen via a fullscreen
 /// quad.  This renderer assumes 3 8-bit BGR channels in the texture, tightly packed.
-/// This class prototype is rendering-library-neutral.
-class TextureRenderer
+#pragma once
+#ifdef _WIN32
+  #include "../GL/glew.h"
+  #include "../GL/glfw.h"
+#else
+  #include <GL/glew.h>
+  #include <GL/glfw.h>
+#endif
+#include "Threading.h"
+
+class TextureRenderer : public Threading
 {
-  /// Texture
-  unsigned char * data;
-  int img_width, img_height;
   unsigned int texture_id;
 
-  /// Rendering context
+protected:
   bool running;
-  bool has_texture;
+  unsigned char * data;
+  int width, height;
   
 public:
-  TextureRenderer();
-  TextureRenderer(int width, int height, unsigned char * data);
+  TextureRenderer(int width, int height);
   virtual ~TextureRenderer();
-  
-  pthread_t start();
-  void stop(pthread_t id);
-  
-  void setWindowSize(int width, int height);
-  void setTexture(int width, int height, unsigned char * data);
-  void setTexture(unsigned char *data);
- 
+
+  void set_window_title(const char * text);
+  void set_window_size(int width, int height);
+  void start();
+  void start_threaded(int count);
+
 private:
-  /// Main loop functions
-  static void * mainloop_threaded(void * obj);
-  void mainloop();
+  void __start();
+  void __set_texture();
 
 protected:
-  virtual void calculate();
+  virtual void thread_action() = 0;
   void render();
-  virtual void handleInputs();
+  virtual void handle_inputs();
 };

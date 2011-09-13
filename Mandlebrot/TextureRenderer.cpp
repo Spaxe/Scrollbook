@@ -1,34 +1,17 @@
 /// Author: Xavier Ho (contact@xavierho.com)
-#ifdef _WIN32
-  #include "../GL/glew.h"
-  #include "../GL/glfw.h"
-#else
-  #include <GL/glew.h>
-  #include <GL/glfw.h>
-#endif
 #include <cstring>
 #include <iostream>
 #include "TextureRenderer.h"
 using namespace std;
 
-TextureRenderer::TextureRenderer()
-{
-  data = NULL;
-  texture_id = NULL;
-  glfwInit();
-  glfwSetWindowTitle("Render View"); // TODO
-}
-
 TextureRenderer::TextureRenderer(int width, 
-                                 int height, 
-                                 unsigned char * data)
+                                 int height)
 {
-  this->data = NULL;
   this->texture_id = NULL;
-  setTexture(width, height, data);
-  setWindowSize(width, height);
+  this->width = width;
+  this->height = height;
+  this->data = new unsigned char[width * height * 3];
   glfwInit();
-  glfwSetWindowTitle("Render View"); // TODO
 }
 
 TextureRenderer::~TextureRenderer()
@@ -38,46 +21,47 @@ TextureRenderer::~TextureRenderer()
   glfwTerminate();
 }
 
-pthread_t TextureRenderer::start()
+void TextureRenderer::start()
 {
+  __start();
+  while(running) {
+    thread_action();    
+    render();
+    handle_inputs();
+  }
+}
+
+void TextureRenderer::start_threaded(int count)
+{
+  __start();
+  while(running) {
+    threads_start(count);
+    threads_wait();
+    render();
+    handle_inputs();
+  }
+}
+
+void TextureRenderer::__start()
+{
+  glfwOpenWindow(width, height, 8, 8, 8, 0, 8, 0, GLFW_WINDOW);
+  __set_texture();
   running = true;
-  glfwOpenWindow(img_width, img_height, 8, 8, 8, 8, 0, 0, GLFW_WINDOW);
-  pthread_t id;
-  int r = pthread_create(&id, NULL, &TextureRenderer::mainloop_threaded, this);
-  if (r)
-    cerr << "Unable to start TextureRenderer: " << r << endl;
-  return id;
 }
 
-void TextureRenderer::stop(pthread_t id)
-{
-  void * status;
-  running = false;
-  int r = pthread_join(id, &status);
-  if (r)
-     cerr << "TextureRenderer thread failed to join: " << r  << endl;
-  glfwCloseWindow();
-}
-
-void TextureRenderer::setWindowSize(int width, int height)
+void TextureRenderer::set_window_size(int width, int height)
 {
   glfwSetWindowSize(width, height);
 }
 
-void TextureRenderer::setTexture(int width, int height, unsigned char * data)
+void TextureRenderer::set_window_title(const char * text)
 {
-  if (this->data != NULL) {
-    has_texture = false;
-    delete[] this->data;
-    glBindTexture(GL_TEXTURE_2D, 0);
-    glDeleteTextures(1, &texture_id);
-  }
+  glfwSetWindowTitle(text);
+}
 
-  this->img_width = width;
-  this->img_height = height;
-  this->data = new unsigned char[width * height * 3];
-  memcpy(this->data, data, width * height * 3 * sizeof(unsigned char));
-  
+void TextureRenderer::__set_texture()
+{
+  glEnable(GL_TEXTURE_2D);
   glGenTextures(1, &texture_id);
   glBindTexture(GL_TEXTURE_2D, texture_id);
   glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
@@ -87,89 +71,47 @@ void TextureRenderer::setTexture(int width, int height, unsigned char * data)
   glTexImage2D(GL_TEXTURE_2D,
                 0, 3, width, height, 0, GL_BGR_EXT, 
                 GL_UNSIGNED_BYTE, data);
-  has_texture = true;
-}
 
-void TextureRenderer::setTexture(unsigned char * data)
-{  
-  glTexSubImage2D(GL_TEXTURE_2D, 
-                  0, 0, 0, img_width, img_height, GL_BGR_EXT, 
-                  GL_UNSIGNED_BYTE, data);
-}
-
-void * TextureRenderer::mainloop_threaded(void * obj)
-{
-  ((TextureRenderer *) obj)->mainloop();
-  cout << "TextureRenderer child thread exiting..." << endl;
-  pthread_exit(0);
-  return NULL;
-}
-
-void TextureRenderer::mainloop()
-{
   glMatrixMode(GL_PROJECTION);
   glLoadIdentity();
-  glOrtho(0, img_width, 0, img_height, -1.0, 1.0);
-  glViewport(0, 0, img_width, img_height);
+  glOrtho(0, width, 0, height, -1.0, 1.0);
+  glViewport(0, 0, width, height);
   glClearColor(0, 0, 0, 0);
-  glEnable(GL_TEXTURE_2D);
-
-  while(running) {
-    calculate();    
-    render();
-    handleInputs();
-    cout << "Thread running." << endl;
-  }
+  glColor3f(1, 1, 1);
 }
 
 void TextureRenderer::render()
 {
-  while (!has_texture) {
-  } // Block if texture is loading
   glMatrixMode(GL_MODELVIEW);
   glLoadIdentity();
   glClear(GL_COLOR_BUFFER_BIT);
+
+  glTexSubImage2D(GL_TEXTURE_2D, 
+                  0, 0, 0, width, height, GL_BGR_EXT, 
+                  GL_UNSIGNED_BYTE, data);
 
   glBegin(GL_QUADS);
     glTexCoord2f(0, 0);
     glVertex3i(0, 0, 0);
         
     glTexCoord2f(1, 0);
-    glVertex3i(img_width, 0, 0);
+    glVertex3i(width, 0, 0);
         
     glTexCoord2f(1, 1);
-    glVertex3i(img_width, img_height, 0);
+    glVertex3i(width, height, 0);
         
     glTexCoord2f(0, 1);
-    glVertex3i(0, img_height, 0);
+    glVertex3i(0, height, 0);
   glEnd();
 
   glfwSwapBuffers();
+  glfwPollEvents();
 }
 
-void TextureRenderer::calculate()
+// Override this method
+void TextureRenderer::handle_inputs()
 {
-  // Override this method
-}
-
-void TextureRenderer::handleInputs()
-{
-  // Override this method
-}
-
-/* Testing */
-int main()
-{
-  unsigned char d[256 * 256 * 3];
-  for (int i = 0; i < 256 * 256; i+=3) {
-    d[i] = 128;
-    d[i+1] = 128;
-    d[i+2] = 128;
-  }
-  TextureRenderer renderer(256, 256, d);
-  pthread_t id = renderer.start();
-  int i;
-  cin >> i;
-  renderer.stop(id);
-  return 0;
+  if (glfwGetWindowParam(GLFW_OPENED) == GL_FALSE 
+          || glfwGetKey(GLFW_KEY_ESC) == GLFW_PRESS)
+    running = false;
 }

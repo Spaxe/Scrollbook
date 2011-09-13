@@ -11,10 +11,13 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="..\Mandlebrot.cpp" />
     <ClCompile Include="..\TextureRenderer.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\Mandlebrot.h" />
     <ClInclude Include="..\TextureRenderer.h" />
+    <ClInclude Include="..\Threading.h" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <ProjectGuid>{E17BF63A-F47E-43FE-AC68-A54F54976FA7}</ProjectGuid>
