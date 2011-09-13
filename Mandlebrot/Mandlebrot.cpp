@@ -3,13 +3,9 @@
   contact@xavierho.com
 */
 #include <iostream>
-#include <cstdlib>
 #include <cmath>
-#include <cstring>
-#include <sstream>
 #include <string>
 
-#include "../Prime/Timer.h"
 #include "Mandlebrot.h"
 using namespace std;
 
@@ -17,14 +13,13 @@ Mandlebrot::Mandlebrot(int width, int height)
   : TextureRenderer(width, height) 
 {
   this->limit = 64;
-  this->scale = 2.0f;
-  this->tx = 0;
-  this->ty = 0;
+  this->scale = 3.0f;
+  this->tx = -width * 5 / 7.0f;
+  this->ty = -height / 2.0f;
 }
 
 Mandlebrot::~Mandlebrot()
 {
-
 }
 
 float Mandlebrot::pixel_at(float cr, float ci)
@@ -42,25 +37,53 @@ float Mandlebrot::pixel_at(float cr, float ci)
   return i / (float)(limit);
 }
 
-
-void Mandlebrot::thread_action()
+void Mandlebrot::thread_action(void * args)
 {
-  for (int j = 0; j < height; ++j) {
-    for (int i = 0; i < width; ++i) {  
-      float x = (float)(i + tx) / width * scale;
-      float y = (float)(j + ty) / height * scale;
-      unsigned char value = (unsigned char)(pixel_at(x, y) * 255);
-      data[j*height*3+i*3] = value;
-      data[j*height*3+1+i*3] = value >> 1;
-      data[j*height*3+2+i*3] = value >> 2;
+  while (running) {
+    BBox * bbox = (BBox *) args;
+    for (int j = bbox->y1; j < bbox->y2; ++j) {
+      for (int i = bbox->x1; i < bbox->x2; ++i) {  
+        float x = (float)(i + tx) / width * scale;
+        float y = (float)(j + ty) / height * scale;
+        unsigned char value = (unsigned char)(pixel_at(x, y) * 255);
+        if (j == bbox->y1 || j+1 == bbox->y2) {
+          data[j*height*3+i*3] = 255;
+          data[j*height*3+1+i*3] = 0;
+          data[j*height*3+2+i*3] = 0;
+        } else {
+          data[j*height*3+i*3] = value;
+          data[j*height*3+1+i*3] = value >> 1;
+          data[j*height*3+2+i*3] = value >> 2;
+        }
+      }
     }
   }
 }
 
+ThreadingHelper Mandlebrot::setup_arguments(int thread_index)
+{
+  ThreadingHelper helper;
+  helper.obj = this;
+  helper.args = (void *) new BBox(0, 0, width, height);
+  int block_height = height / thread_count;
+  if (thread_index + 1 < thread_count) {
+    ((BBox *) helper.args)->y1 = (block_height * thread_index);
+    ((BBox *) helper.args)->y2 = (block_height * (thread_index+1));
+  } else {
+    ((BBox *) helper.args)->y1 = (block_height * thread_index);
+    ((BBox *) helper.args)->y2 = height;
+  }
+  return helper;
+}
+
+void Mandlebrot::cleanup_arguments(ThreadingHelper * helper)
+{
+  delete helper->args;
+}
+
 void Mandlebrot::handle_inputs()
 {
-  if (glfwGetKey(GLFW_KEY_ESC) == GLFW_PRESS) // ESC
-    running = false;
+  TextureRenderer::handle_inputs();
   if (glfwGetKey('H') == GLFW_PRESS) {
     scale = 2.f;
     tx = -width * 2 / 3.0f;
@@ -120,7 +143,7 @@ void TextureRenderer::handleMouseMove()
 int main(int argc, char* argv[])
 {    
   Mandlebrot m(1024, 1024);
-  m.start();
+  m.start_threaded(1);
   return EXIT_SUCCESS;
 }
 

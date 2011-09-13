@@ -4,13 +4,16 @@
 #include "TextureRenderer.h"
 using namespace std;
 
-TextureRenderer::TextureRenderer(int width, 
-                                 int height)
+struct BBox;
+
+TextureRenderer::TextureRenderer(int width, int height)
+  : timer()
 {
   this->texture_id = NULL;
   this->width = width;
   this->height = height;
   this->data = new unsigned char[width * height * 3];
+  memset(this->data, 0, width * height * 3 * sizeof(unsigned char));
   glfwInit();
 }
 
@@ -23,23 +26,23 @@ TextureRenderer::~TextureRenderer()
 
 void TextureRenderer::start()
 {
-  __start();
-  while(running) {
-    thread_action();    
-    render();
-    handle_inputs();
-  }
+  start_threaded(1);
 }
 
 void TextureRenderer::start_threaded(int count)
 {
   __start();
+  thread_count = count;
+  timer.start();
+  threads_start(count);
   while(running) {
-    threads_start(count);
-    threads_wait();
     render();
     handle_inputs();
+    elapsed_time = timer.getMilliseconds();
+    timer.start();
+    cout << elapsed_time << " ms" << endl; 
   }
+  threads_wait();
 }
 
 void TextureRenderer::__start()

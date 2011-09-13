@@ -5,7 +5,7 @@
 #include "TextureRenderer.h"
   
 /**
- * Mandlebrot bounding box helper struct
+ * rendering bounding box region
  */
 struct BBox {
   int x1;
@@ -18,9 +18,12 @@ struct BBox {
 
 
 /// For a point C(r, i) on the complex plane where
+///
 ///   -2.5 < r < 1
 ///   -1   < i < 1
+///
 /// the Mandlebrot fractal is defined by the following algorithm:
+///
 ///   count = 0
 ///   Z = 0     (Z is a complex number)
 ///   while |Z|<2 and count < some limit:
@@ -30,6 +33,7 @@ struct BBox {
 ///     return 0
 ///   else:
 ///     return count      (intensity of the pixel)
+///
 class Mandlebrot : public TextureRenderer
 {
   int limit;              /// Upper bound number of computing interations per pixel
@@ -47,6 +51,8 @@ private:
   /// pixel by pixel with no interference.  The formula is simple and implemented below.
   /// This function returns the fractal at (cr, ci) in the range [0, 1]
   float pixel_at(float cr, float ci); 
-  void thread_action();
+  void thread_action(void * args);
+  ThreadingHelper setup_arguments(int thread_index);
+  void cleanup_arguments(ThreadingHelper * helper);
   void handle_inputs();
 };
