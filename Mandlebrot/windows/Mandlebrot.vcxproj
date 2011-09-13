@@ -10,6 +10,12 @@
       <Platform>Win32</Platform>
     </ProjectConfiguration>
   </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="..\TextureRenderer.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\TextureRenderer.h" />
+  </ItemGroup>
   <PropertyGroup Label="Globals">
     <ProjectGuid>{E17BF63A-F47E-43FE-AC68-A54F54976FA7}</ProjectGuid>
     <RootNamespace>Mandlebrot</RootNamespace>
@@ -80,12 +86,6 @@
       </Command>
     </PreBuildEvent>
   </ItemDefinitionGroup>
-  <ItemGroup>
-    <ClCompile Include="..\Mandlebrot.cpp" />
-  </ItemGroup>
-  <ItemGroup>
-    <ClInclude Include="..\Mandlebrot.h" />
-  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>
