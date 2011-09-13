@@ -5,7 +5,6 @@
 #include <iostream>
 #include <cmath>
 #include <string>
-
 #include "Mandlebrot.h"
 using namespace std;
 
@@ -46,7 +45,7 @@ void Mandlebrot::thread_action(void * args)
         float x = (float)(i + tx) / width * scale;
         float y = (float)(j + ty) / height * scale;
         unsigned char value = (unsigned char)(pixel_at(x, y) * 255);
-        if (j == bbox->y1 || j+1 == bbox->y2) {
+        if (j == bbox->y1) {
           data[j*height*3+i*3] = 255;
           data[j*height*3+1+i*3] = 0;
           data[j*height*3+2+i*3] = 0;
@@ -57,6 +56,7 @@ void Mandlebrot::thread_action(void * args)
         }
       }
     }
+    thread_signal_and_wait();
   }
 }
 
@@ -111,6 +111,14 @@ void Mandlebrot::handle_inputs()
   }
 }
 
+int main(int argc, char* argv[])
+{    
+  Mandlebrot m(1024, 1024);
+  m.start_threaded(2);
+  return EXIT_SUCCESS;
+}
+
+
 /*
 void TextureRenderer::handleMouse()
 {
@@ -139,13 +147,6 @@ void TextureRenderer::handleMouseMove()
   }
 }*/
 
-    
-int main(int argc, char* argv[])
-{    
-  Mandlebrot m(1024, 1024);
-  m.start_threaded(1);
-  return EXIT_SUCCESS;
-}
 
 
 /*

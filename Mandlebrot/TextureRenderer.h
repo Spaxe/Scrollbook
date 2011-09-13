@@ -28,6 +28,10 @@ class TextureRenderer : public Threading
 {
   unsigned int texture_id;  /// Internal texture id tracker
   Time timer;               /// Performance tracker
+
+  pthread_mutex_t count_mutex; /// Thread synchronisation
+  pthread_cond_t count_threshold_cv;
+  int resources;            /// Number of threads completed; for synchronisation
   
 protected:
   double elapsed_time;      /// Total time took to render one frame, in ms
@@ -40,7 +44,7 @@ protected:
   /// Number of threads currently running.  Do NOT directly modify this value.
   /// You can use it to compare against the thread_index in setup_arguements().
   int thread_count;
-  
+
 public:
   TextureRenderer(int width, int height);
   virtual ~TextureRenderer();
@@ -62,4 +66,7 @@ private:
 protected:
   /// Override this method to handle user inputs.
   virtual void handle_inputs();
+
+  /// Thread synchronisation.  Call in thread_action() to signal finish.
+  void thread_signal_and_wait();
 };

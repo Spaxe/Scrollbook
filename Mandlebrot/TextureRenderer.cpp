@@ -7,11 +7,14 @@ using namespace std;
 struct BBox;
 
 TextureRenderer::TextureRenderer(int width, int height)
-  : timer()
+  : Threading(), timer()
 {
   this->texture_id = NULL;
+  this->resources = 0;
   this->width = width;
   this->height = height;
+  pthread_mutex_init(&count_mutex, NULL);
+  pthread_cond_init(&count_threshold_cv, NULL);
   this->data = new unsigned char[width * height * 3];
   memset(this->data, 0, width * height * 3 * sizeof(unsigned char));
   glfwInit();
@@ -21,6 +24,8 @@ TextureRenderer::~TextureRenderer()
 {
   if (data != NULL)
     delete[] data;
+  pthread_mutex_destroy(&count_mutex);
+  pthread_cond_destroy(&count_threshold_cv);
   glfwTerminate();
 }
 
@@ -35,12 +40,19 @@ void TextureRenderer::start_threaded(int count)
   thread_count = count;
   timer.start();
   threads_start(count);
-  while(running) {
+  while (running) {
+
+    while (resources != thread_count) {
+    } // Do nothing while rendering
     render();
+    resources = 0;
     handle_inputs();
+
     elapsed_time = timer.getMilliseconds();
     timer.start();
     cout << elapsed_time << " ms" << endl; 
+
+    pthread_cond_broadcast(&count_threshold_cv); // Release the children once more
   }
   threads_wait();
 }
@@ -117,4 +129,12 @@ void TextureRenderer::handle_inputs()
   if (glfwGetWindowParam(GLFW_OPENED) == GL_FALSE 
           || glfwGetKey(GLFW_KEY_ESC) == GLFW_PRESS)
     running = false;
+}
+
+void TextureRenderer::thread_signal_and_wait()
+{
+  pthread_mutex_lock(&count_mutex);
+  resources++;
+  pthread_cond_wait(&count_threshold_cv, &count_mutex);
+  pthread_mutex_unlock(&count_mutex);
 }
