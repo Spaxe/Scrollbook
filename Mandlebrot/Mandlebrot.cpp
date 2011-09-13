@@ -114,7 +114,7 @@ void Mandlebrot::handle_inputs()
 int main(int argc, char* argv[])
 {    
   Mandlebrot m(1024, 1024);
-  m.start_threaded(2);
+  m.start_threaded(8);
   return EXIT_SUCCESS;
 }
 
