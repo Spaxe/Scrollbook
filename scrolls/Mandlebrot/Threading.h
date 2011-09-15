@@ -32,7 +32,7 @@ protected:
 
 public:
   Threading()
-    : thread_count(0) {}
+    : threads(NULL), helpers(NULL), thread_count(0) {}
   virtual ~Threading() {}
 
 protected:
@@ -51,7 +51,8 @@ protected:
       helpers[i].obj = this;
       helpers[i].index = i;
       if (pthread_create(&threads[i], NULL, __run_thread,(void *)&helpers[i]) != 0) {
-        std::cerr << "Threading failed to create a thread." << std::endl;
+        thread_count = i;
+        threads_wait();
         return false;
       }
     }
@@ -60,11 +61,8 @@ protected:
 
   /// Waits for all of the threads to finish, blocking.
   void threads_wait() {
-    for (int i = 0; i < thread_count; ++i) {
-      if (pthread_join(threads[i], NULL) != 0) {
-        std::cerr << "Threading failed to join a thread." << std::endl;
-      }
-    }
+    for (int i = 0; i < thread_count; ++i)
+      pthread_join(threads[i], NULL);
     delete[] helpers;
     delete[] threads;
   }
