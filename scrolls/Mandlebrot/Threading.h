@@ -5,7 +5,7 @@
 #ifdef _WIN32
   #include "../include/pthread.h"
 #else
-  #include <pthread>
+  #include <pthread.h>
 #endif
 #include <vector>
 #include <iostream>
