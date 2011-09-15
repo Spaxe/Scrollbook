@@ -45,7 +45,7 @@ void TextureRenderer::start_threaded(int count)
 
     elapsed_time = timer.getMilliseconds();
     timer.start();
-    cout << elapsed_time << " ms" << endl; 
+    cout << elapsed_time << endl; 
 
     pthread_cond_broadcast(&count_threshold_cv); // Release the children once more
   }

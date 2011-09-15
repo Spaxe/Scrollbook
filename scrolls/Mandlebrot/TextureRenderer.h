@@ -33,7 +33,7 @@ class TextureRenderer : public Threading
   /// Thread synchronisation stuff. Messy, could use some refactoring
   pthread_mutex_t count_mutex; 
   pthread_cond_t count_threshold_cv;
-  int resources;            /// Number of threads completed; for synchronisation
+  volatile int resources;            /// Number of threads completed; for synchronisation
   
 protected:
   double elapsed_time;      /// Total time took to render one frame, in ms
