@@ -29,11 +29,6 @@ TextureRenderer::~TextureRenderer()
   glfwTerminate();
 }
 
-void TextureRenderer::start()
-{
-  start_threaded(1);
-}
-
 void TextureRenderer::start_threaded(int count)
 {
   __start();

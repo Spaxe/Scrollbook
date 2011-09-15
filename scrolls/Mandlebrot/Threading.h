@@ -3,43 +3,54 @@
 ///
 #pragma once
 #ifdef _WIN32
-  #include "../include/pthread.h"
+  #include "windows/pthread.h"
 #else
   #include <pthread.h>
 #endif
-#include <vector>
 #include <iostream>
 
 class Threading;
 
+/// object to be passed to pthread_create.
 struct ThreadingHelper {
   Threading * obj;
-  void * args;
+  int index;
 };
 
 /// Provides a simple interface for C++ classes to do threading with pthread.
+/// This class does not provide thread synchronisation, as it is the programmer
+/// who is resonsible for doing so inside thread_action().
 class Threading
 {
   /// Tracks the thread ids
-  std::vector<pthread_t> threads;
-  std::vector<ThreadingHelper> helpers;
+  pthread_t * threads;
+  ThreadingHelper * helpers;
+
+protected:
+  /// Number of threads currently running.  Do NOT directly modify this value.
+  int thread_count;
 
 public:
-  Threading() : threads() {}
+  Threading()
+    : thread_count(0) {}
   virtual ~Threading() {}
 
+protected:
+  /// Code to be run inside each thread.  
+  /// Override this method.
+  virtual void thread_action(int index) = 0;
+
   /// Starts the threads.
-  /// You can spawn identical workers, or set them up appropriately with
-  /// different inputs.  If one thread fails to run, it stops and returns
-  /// false.  See setup_arguments().
+  /// You can spawn identical workers.  They come with an identifying index, 
+  /// with the first child thread being 0, the second being 1, and so on.
   bool threads_start(int count) {
-    helpers.reserve(count);
-    threads.reserve(count);
+    thread_count = count;
+    threads = new pthread_t[count];
+    helpers = new ThreadingHelper[count];
     for (int i = 0; i < count; ++i) {
-      threads.push_back(pthread_t());
-      helpers.push_back(setup_arguments(i));
-      // std::cout << "[Main] Helper located at: " << &helpers[i] << "\tPointing to object " << helpers[i].obj << std::endl;
-      if (pthread_create(&threads[i], NULL, __run_thread, (void *)&helpers[i]) != 0) {
+      helpers[i].obj = this;
+      helpers[i].index = i;
+      if (pthread_create(&threads[i], NULL, __run_thread,(void *)&helpers[i]) != 0) {
         std::cerr << "Threading failed to create a thread." << std::endl;
         return false;
       }
@@ -48,40 +59,27 @@ public:
   }
 
   /// Waits for all of the threads to finish, blocking.
-  bool threads_wait() {
-    for (int i = 0; i < (int)threads.size(); ++i) {
+  void threads_wait() {
+    for (int i = 0; i < thread_count; ++i) {
       if (pthread_join(threads[i], NULL) != 0) {
         std::cerr << "Threading failed to join a thread." << std::endl;
-        return false; 
       }
-      cleanup_arguments(&helpers[i]);
     }
-    helpers.clear();
-    threads.clear();
-    return true;
+    delete[] helpers;
+    delete[] threads;
   }
-
-protected:
-  /// Code to be run inside each thread.  Override this method.
-  virtual void thread_action(void * args) = 0;
-
-  /// Sets up the arguments to be passed into each thread.  Here an index is
-  /// passed into the function on calling for convenience.  Override this
-  /// method. Set up ThreadingHelper's members: args appropriately by the index
-  /// and obj must point to the instance, by copying 'this' pointer.
-  virtual ThreadingHelper setup_arguments(int thread_index) = 0;
-
-  /// Similarly, if you claimed any resources for ThreadingHelper, free them.
-  virtual void cleanup_arguments(ThreadingHelper * helper) = 0;
 
 private:
   /// Hacky code that runs the thread and evokes thread_action.
   static void * __run_thread(void * helper) {
     ThreadingHelper * __helper = (ThreadingHelper *) helper;
-    // std::cout << "[Child] Helper located at: " << __helper << "\tPointing to object " << __helper->obj << std::endl;
-    __helper->obj->thread_action(__helper->args);
+    __helper->obj->__thread_action((void *)&__helper->index);
     pthread_exit(0);
     return NULL;
+  }
+
+  void __thread_action(void * index) {
+    this->thread_action(*(int *)index);
   }
 };
 

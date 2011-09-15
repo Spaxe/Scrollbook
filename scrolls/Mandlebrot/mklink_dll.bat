@@ -1,1 +1,0 @@
-for %%f in (..\lib\*.dll) do (mklink %%~nxf %%f)

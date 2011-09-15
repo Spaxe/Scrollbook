@@ -51,8 +51,13 @@ private:
   /// pixel by pixel with no interference.  The formula is simple and implemented below.
   /// This function returns the fractal at (cr, ci) in the range [0, 1]
   float pixel_at(float cr, float ci); 
-  void thread_action(void * args);
-  ThreadingHelper setup_arguments(int thread_index);
-  void cleanup_arguments(ThreadingHelper * helper);
+
+  /// Threaded mandlebrot rendering function.
+  void thread_action(int index);
+
+  /// Grabs user inputs and provides feedback
   void handle_inputs();
+
+  /// No multi-threading drawing method
+  void draw();
 };

@@ -36,49 +36,40 @@ float Mandlebrot::pixel_at(float cr, float ci)
   return i / (float)(limit);
 }
 
-void Mandlebrot::thread_action(void * args)
+void Mandlebrot::thread_action(int index)
 {
+  BBox bbox(0, 0, width, height);
+  int block_height = height / thread_count;
+  if (index + 1 < thread_count) {
+    bbox.y1 = (block_height * index);
+    bbox.y2 = (block_height * (index+1));
+  } else {
+    bbox.y1 = (block_height * index);
+    bbox.y2 = height;
+  }
   while (running) {
-    BBox * bbox = (BBox *) args;
-    for (int j = bbox->y1; j < bbox->y2; ++j) {
-      for (int i = bbox->x1; i < bbox->x2; ++i) {  
+    for (int j = bbox.y1; j < bbox.y2; ++j) {
+      for (int i = bbox.x1; i < bbox.x2; ++i) {  
         float x = (float)(i + tx) / width * scale;
         float y = (float)(j + ty) / height * scale;
         unsigned char value = (unsigned char)(pixel_at(x, y) * 255);
-        if (j == bbox->y1) {
+#ifdef DEBUG
+        if (j == bbox.y1) {
           data[j*height*3+i*3] = 255;
           data[j*height*3+1+i*3] = 0;
           data[j*height*3+2+i*3] = 0;
         } else {
+#endif
           data[j*height*3+i*3] = value;
           data[j*height*3+1+i*3] = value >> 1;
           data[j*height*3+2+i*3] = value >> 2;
+#ifdef DEBUG
         }
+#endif
       }
     }
     thread_signal_and_wait();
   }
-}
-
-ThreadingHelper Mandlebrot::setup_arguments(int thread_index)
-{
-  ThreadingHelper helper;
-  helper.obj = this;
-  helper.args = (void *) new BBox(0, 0, width, height);
-  int block_height = height / thread_count;
-  if (thread_index + 1 < thread_count) {
-    ((BBox *) helper.args)->y1 = (block_height * thread_index);
-    ((BBox *) helper.args)->y2 = (block_height * (thread_index+1));
-  } else {
-    ((BBox *) helper.args)->y1 = (block_height * thread_index);
-    ((BBox *) helper.args)->y2 = height;
-  }
-  return helper;
-}
-
-void Mandlebrot::cleanup_arguments(ThreadingHelper * helper)
-{
-  delete helper->args;
 }
 
 void Mandlebrot::handle_inputs()
@@ -114,6 +105,7 @@ void Mandlebrot::handle_inputs()
 int main(int argc, char* argv[])
 {    
   Mandlebrot m(1024, 1024);
+  //m.start();
   m.start_threaded(8);
   return EXIT_SUCCESS;
 }

@@ -5,31 +5,33 @@
 /// quad.  This renderer assumes 3 8-bit BGR channels in the texture, tightly packed.
 #pragma once
 #ifdef _WIN32
-  #include "../GL/glew.h"
-  #include "../GL/glfw.h"
+  #include "GL/glew.h"
+  #include "GL/glfw.h"
 #else
   #include <GL/glew.h>
   #include <GL/glfw.h>
 #endif
-#include "../Prime/Timer.h"
+#include "Timer.h"
 #include "Threading.h"
 
 /// Simple renderer that draws a fullscreen quad with a texture.
-/// Multithreading is supported.  This class is abstract, and the subclass must
-/// override the following functions:
 ///
-///   void thread_action()
+/// Multithreading is supported.  Override this:
+///
+///   void thread_action(int index)
+///
+/// In addition, if you want to have more than ESC to quit, override:
+///
 ///   void handle_inputs() (optional)
-///   ThreadingHelper setup_arguments(int thread_index)
-///   void cleanup_arguments(ThreadingHelper * helper)
 ///
 /// See Threading.h for more information.
 class TextureRenderer : public Threading
 {
   unsigned int texture_id;  /// Internal texture id tracker
-  Time timer;               /// Performance tracker
+  Timer timer;               /// Performance tracker
 
-  pthread_mutex_t count_mutex; /// Thread synchronisation
+  /// Thread synchronisation stuff. Messy, could use some refactoring
+  pthread_mutex_t count_mutex; 
   pthread_cond_t count_threshold_cv;
   int resources;            /// Number of threads completed; for synchronisation
   
@@ -41,19 +43,12 @@ protected:
   unsigned char * data;     /// Texture data
   int width, height;        /// Texture resolution
 
-  /// Number of threads currently running.  Do NOT directly modify this value.
-  /// You can use it to compare against the thread_index in setup_arguements().
-  int thread_count;
-
 public:
   TextureRenderer(int width, int height);
   virtual ~TextureRenderer();
 
   void set_window_title(const char * text);
   void set_window_size(int width, int height);
-
-  /// Starts one plus one thread;
-  void start();
 
   /// Starts a multi-threaded program with additional count threads
   void start_threaded(int count);
