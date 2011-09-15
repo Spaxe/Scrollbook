@@ -51,7 +51,6 @@ protected:
       helpers[i].index = i;
       if (pthread_create(&threads[i], NULL, __run_thread,(void *)&helpers[i]) != 0) {
         thread_count = i;
-        threads_wait();
         return false;
       }
     }
