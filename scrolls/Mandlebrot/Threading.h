@@ -7,7 +7,6 @@
 #else
   #include <pthread.h>
 #endif
-#include <iostream>
 
 class Threading;
 
