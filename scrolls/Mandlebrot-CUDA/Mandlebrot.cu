@@ -1,24 +1,28 @@
-/**
-  Xavier Ho, s2674674
-  contact@xavierho.com
-*/
+///
+/// Author: Xavier Ho (contact@xavierho.com)
+///
 #include <iostream>
 #include <cmath>
 #include <string>
+#include "GL\glew.h"
+#include "GL\glfw.h"
 #include "Mandlebrot.h"
 using namespace std;
 
 Mandlebrot::Mandlebrot(int width, int height)
-  : TextureRenderer(width, height) 
 {
+  this->width = width;
+  this->height = height;
   this->limit = 64;
   this->scale = 3.0f;
   this->tx = -width * 5 / 7.0f;
   this->ty = -height / 2.0f;
+  this->data = new unsigned char[width * height * 3];
 }
 
 Mandlebrot::~Mandlebrot()
 {
+  delete[] this->data;
 }
 
 float Mandlebrot::pixel_at(float cr, float ci)
@@ -36,45 +40,22 @@ float Mandlebrot::pixel_at(float cr, float ci)
   return i / (float)(limit);
 }
 
-void Mandlebrot::thread_action(int index)
+void Mandlebrot::render()
 {
-  BBox bbox(0, 0, width, height);
-  int block_height = height / thread_count;
-  if (index + 1 < thread_count) {
-    bbox.y1 = (block_height * index);
-    bbox.y2 = (block_height * (index+1));
-  } else {
-    bbox.y1 = (block_height * index);
-    bbox.y2 = height;
-  }
-  while (running) {
-    for (int j = bbox.y1; j < bbox.y2; ++j) {
-      for (int i = bbox.x1; i < bbox.x2; ++i) {  
-        float x = (float)(i + tx) / width * scale;
-        float y = (float)(j + ty) / height * scale;
-        unsigned char value = (unsigned char)(pixel_at(x, y) * 255);
-#ifdef DEBUG
-        if (j == bbox.y1) {
-          data[j*height*3+i*3] = 255;
-          data[j*height*3+1+i*3] = 0;
-          data[j*height*3+2+i*3] = 0;
-        } else {
-#endif
-          data[j*height*3+i*3] = value;
-          data[j*height*3+1+i*3] = value >> 1;
-          data[j*height*3+2+i*3] = value >> 2;
-#ifdef DEBUG
-        }
-#endif
-      }
+  for (int j = 0; j < height; ++j) {
+    for (int i = 0; i < width; ++i) {  
+      float x = (float)(i + tx) / width * scale;
+      float y = (float)(j + ty) / height * scale;
+      unsigned char value = (unsigned char)(pixel_at(x, y) * 255);
+      data[j*height*3+i*3] = value;
+      data[j*height*3+1+i*3] = value >> 1;
+      data[j*height*3+2+i*3] = value >> 2;
     }
-    thread_signal_and_wait();
   }
 }
 
 void Mandlebrot::handle_inputs()
 {
-  TextureRenderer::handle_inputs();
   if (glfwGetKey('H') == GLFW_PRESS) {
     scale = 2.f;
     tx = -width * 2 / 3.0f;
@@ -105,7 +86,6 @@ void Mandlebrot::handle_inputs()
 int main(int argc, char* argv[])
 {    
   Mandlebrot m(1024, 1024);
-  m.start_threaded(8);
   return EXIT_SUCCESS;
 }
 
