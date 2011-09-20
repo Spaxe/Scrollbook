@@ -9,6 +9,11 @@
 #include "Mandlebrot.h"
 using namespace std;
 
+__global__ void test(float * b, float * result)
+{
+  result[threadIdx.x] = b[threadIdx.x] * 2;
+}
+
 Mandlebrot::Mandlebrot(int width, int height)
 {
   this->width = width;
@@ -85,7 +90,22 @@ void Mandlebrot::handle_inputs()
 
 int main(int argc, char* argv[])
 {    
-  Mandlebrot m(1024, 1024);
+  //Mandlebrot m(1024, 1024);
+
+  float a[] = {1.0f, 1.2f, 1.4f, 1.6f, 1.8f, 2.0f};
+  float *b, *res;
+  for (int i = 0; i < 6; ++i)
+    cout << a[i] << endl;
+  cudaMalloc((void **)&res, 6 * sizeof(float));
+  cudaMalloc((void **)&b, 6 * sizeof(float));
+  cudaMemcpy(b, a, 6 * sizeof(float), cudaMemcpyHostToDevice);
+  test<<<1, 6>>>(b, res);
+  cout << cudaGetErrorString(cudaMemcpy(a, res, 6 * sizeof(float), cudaMemcpyDeviceToHost)) << endl;
+  for (int i = 0; i < 6; ++i)
+    cout << a[i] << endl;
+  cudaFree(res);
+  cudaFree(b);
+  getchar();
   return EXIT_SUCCESS;
 }
 
