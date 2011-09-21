@@ -3,6 +3,9 @@
 ///
 #pragma once
 
+struct Prop {
+
+};
 
 /// For a point C(r, i) on the complex plane where
 ///
@@ -30,11 +33,18 @@ class Mandlebrot
   bool running;           /// Rendering state
   int width;              /// Window size
   int height;
-  unsigned char * data;   /// System memory for the fractal
+  size_t size;            /// Size of data buffer
+  unsigned char * data;     /// System memory for the fractal
+  unsigned char * gpu_data; /// Device memory for the fractal
+  unsigned int texture_id;  /// OpenGL Texture ID
+  Timer timer;
+  float elapsed_time;
 
 public:
   Mandlebrot(int width, int height);
   virtual ~Mandlebrot();
+
+  void render();
 
 private:
   /// Returns the pixel intensity at imaginary plane (cr, ci)
@@ -42,9 +52,6 @@ private:
   /// pixel by pixel with no interference.  The formula is simple and implemented below.
   /// This function returns the fractal at (cr, ci) in the range [0, 1]
   float pixel_at(float cr, float ci); 
-
-  /// Mandlebrot rendering function.
-  void render();
 
   /// Grabs user inputs and provides feedback
   void handle_inputs();
