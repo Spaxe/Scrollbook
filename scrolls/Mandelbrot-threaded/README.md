@@ -27,7 +27,7 @@ We have implemented a quick version of a Threading class in C++, because <pthrea
 
 Rendering solution
 ==================
-Instead of plotting each pixel into the device (which has a lot of transferring overhead), we instead draw a ‘full-screen quad' with a texture applied to it.  A full-screen quad is a rectangle that matches the exact size of the viewport.  The texture is our rendered Mandelbrot set buffer, which is a single transfer and much, much faster than per-pixel transfer.
+Instead of plotting each pixel into the device (which has a lot of transferring overhead), we instead draw a 'full-screen quad' with a texture applied to it.  A full-screen quad is a rectangle that matches the exact size of the viewport.  The texture is our rendered Mandelbrot set buffer, which is a single transfer and much, much faster than per-pixel transfer.
 
 User controls
 =============
@@ -35,7 +35,7 @@ The program supports a number of user interaction controls.
 -	Use W, A, S, D keys to pan around.
 -	Q and E zooms in and out.
 -	[ and ] changes the maximum iteration limit, up to 1024.
--	H will bring the screen back to ‘home view', the default viewport range.
+-	H will bring the screen back to 'home view', the default viewport range.
 
 Ubuntu Testing Environment Dump
 ===============================
