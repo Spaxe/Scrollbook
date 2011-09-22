@@ -105,6 +105,6 @@ void Mandelbrot::handle_inputs()
 int main(int argc, char* argv[])
 {    
   Mandelbrot m(1024, 1024);
-  m.start_threaded(128);
+  m.start_threaded(256);
   return 0;
 }
