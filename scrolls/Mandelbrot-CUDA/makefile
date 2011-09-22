@@ -1,17 +1,11 @@
-LIBS= -lGL -lpthread -lGLU -lglut -lTimer # -lglew
-LIB_PATH=-L../lib/
+LIBS= -lGL -lpthread -lGLU -lGLEW -lglfw
+LIB_PATH=-L./lib/
+INC_PATH=-I./include/
 
-all: Mandlebrot
+all: Mandelbrot
 
-Mandlebrot: Mandlebrot.cpp 
-	gcc -Wall -g -c -o Mandlebrot.o Mandlebrot.cpp
-	gcc -o Mandlebrot $(LIBS) $(LIB_PATH) Mandlebrot.o 
-
-install:
-	ln -s ../lib/libTimer.so libTimer.so.1
-
-remove:
-	rm -f libTimer.so.*
+Mandelbrot: Mandelbrot.cu 
+	nvcc $(INC_PATH) $(LIB_PATH) $(LIBS) -o Mandelbrot Mandelbrot.cu
 
 clean:
-	rm -f Mandlebrot.o Mandlebrot  
+	rm -f Mandelbrot  

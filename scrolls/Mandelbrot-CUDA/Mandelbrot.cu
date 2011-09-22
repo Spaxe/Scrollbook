@@ -5,8 +5,13 @@
 #include <cmath>
 #include <string>
 #include <string.h>
-#include "GL\glew.h"
-#include "GL\glfw.h"
+#ifdef _WIN32
+  #include "GL/glew.h"
+  #include "GL/glfw.h"
+#else
+  #include <GL/glew.h>
+  #include <GL/glfw.h>
+#endif
 #include "Timer.h"
 #include "Mandelbrot.h"
 using namespace std;
