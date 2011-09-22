@@ -32,6 +32,7 @@ Instead of plotting each pixel into the device (which has a lot of transferring 
 User controls
 =============
 The program supports a number of user interaction controls.
+
   -	Use W, A, S, D keys to pan around.
   -	Q and E zooms in and out.
   -	[ and ] changes the maximum iteration limit, up to 1024.
