@@ -92,11 +92,11 @@ void Mandelbrot::handle_inputs()
     scale += 0.25f;
   if (glfwGetKey('E') == GLFW_PRESS)
     scale -= 0.25f;
-  if (glfwGetKey('-') == GLFW_PRESS) {
+  if (glfwGetKey('[') == GLFW_PRESS) {
     limit /= 2;
     if (limit < 1) limit = 2;
   }
-  if (glfwGetKey('+') == GLFW_PRESS) {
+  if (glfwGetKey(']') == GLFW_PRESS) {
     limit *= 2;
     if (limit > 1024) limit = 1024;
   }
@@ -106,5 +106,5 @@ int main(int argc, char* argv[])
 {    
   Mandelbrot m(1024, 1024);
   m.start_threaded(128);
-  return EXIT_SUCCESS;
+  return 0;
 }

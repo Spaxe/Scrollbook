@@ -9,7 +9,7 @@ struct BBox;
 TextureRenderer::TextureRenderer(int width, int height)
   : Threading(), timer()
 {
-  this->texture_id = NULL;
+  this->texture_id = 0;
   this->resources = 0;
   this->width = width;
   this->height = height;
