@@ -33,20 +33,18 @@ void TextureRenderer::start_threaded(int count)
 {
   __start();
   thread_count = count;
-  timer.start();
   threads_start(count);
   while (running) {
-
+    timer.start();
     while (resources != thread_count) {
     } // Do nothing while rendering
     render();
     resources = 0;
-    handle_inputs();
-
+    
     elapsed_time = timer.getMilliseconds();
-    timer.start();
     cout << elapsed_time << endl; 
 
+    handle_inputs();
     pthread_cond_broadcast(&count_threshold_cv); // Release the children once more
   }
   threads_wait();

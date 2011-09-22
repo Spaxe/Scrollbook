@@ -5,10 +5,10 @@
 #include <iostream>
 #include <cmath>
 #include <string>
-#include "Mandlebrot.h"
+#include "Mandelbrot.h"
 using namespace std;
 
-Mandlebrot::Mandlebrot(int width, int height)
+Mandelbrot::Mandelbrot(int width, int height)
   : TextureRenderer(width, height) 
 {
   this->limit = 64;
@@ -17,11 +17,11 @@ Mandlebrot::Mandlebrot(int width, int height)
   this->ty = -height / 2.0f;
 }
 
-Mandlebrot::~Mandlebrot()
+Mandelbrot::~Mandelbrot()
 {
 }
 
-float Mandlebrot::pixel_at(float cr, float ci)
+float Mandelbrot::pixel_at(float cr, float ci)
 {
   float x = 0, y = 0;
   float tmp;
@@ -36,7 +36,7 @@ float Mandlebrot::pixel_at(float cr, float ci)
   return i / (float)(limit);
 }
 
-void Mandlebrot::thread_action(int index)
+void Mandelbrot::thread_action(int index)
 {
   BBox bbox(0, 0, width, height);
   int block_height = height / thread_count;
@@ -72,7 +72,7 @@ void Mandlebrot::thread_action(int index)
   }
 }
 
-void Mandlebrot::handle_inputs()
+void Mandelbrot::handle_inputs()
 {
   TextureRenderer::handle_inputs();
   if (glfwGetKey('H') == GLFW_PRESS) {
@@ -104,74 +104,7 @@ void Mandlebrot::handle_inputs()
 
 int main(int argc, char* argv[])
 {    
-  Mandlebrot m(1024, 1024);
-  m.start_threaded(8);
+  Mandelbrot m(1024, 1024);
+  m.start_threaded(128);
   return EXIT_SUCCESS;
 }
-
-
-/*
-void TextureRenderer::handleMouse()
-{
-  glfwGetMousePos(&mx, &my);
-  drag = glfwGetMouseButton(GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS;
-  zoom = glfwGetMouseButton(GLFW_MOUSE_BUTTON_RIGHT) == GLFW_PRESS;
-}
-
-
-void TextureRenderer::handleMouseMove()
-{
-  int x, y;
-  glfwGetMousePos(&x, &y);
-  if (drag) {
-    tx += (mx - x);
-    ty += (y - my);
-    mx = x;
-    my = y;
-  } else if (zoom) {
-    if (mx - x < 0)
-      scale -= 0.1f;
-    else if (mx - x > 0)
-      scale += 0.1f;
-    else
-    {} // Nothing
-  }
-}*/
-
-
-
-/*
-TextureRenderer::TextureRenderer(int width, int height)
-  : bbox(0, 0, width, height)
-{
-  this->width = width;
-  this->height = height;
-  data = new unsigned char[width * height * 3];
-  
-  scale = 2.f;
-  tx = -width*2/3;
-  ty = -height/3;
-  limit = 32;
-
-  mx = my = 0;
-  drag = zoom = false;
-  running = true;
-  rendererType = 1;
-  
-  elapsed_timer = 0.0;
-  modeText = "1: CPU (single thread)";
-  computeText = "Time/fractal: ";
-  fpsText = "Time/frame: ";
-
-  glfwInit();
-}*/
-
-/*
-void TextureRenderer::drawText(int x, int y, const string& text)
-{
-  // glRasterPos2i(x, y);
-  // for (int i = 0; i < (int)text.size(); i++)
-    //glutBitmapCharacter(GLUT_BITMAP_8_BY_13, text[i]);
-  // TODO: If time allows, print to screen.
-  cout << text << endl;
-}*/
